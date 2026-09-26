@@ -1,0 +1,226 @@
+# Feature behavior audit — inventory what the product promises and does, then
+# judge whether those behaviors are sufficient to deliver the promised outcome.
+#
+# This is deliberately a two-pass audit. Pass 1 records intent and implemented
+# behavior without grading either. Pass 2 works from that frozen inventory,
+# verifies its evidence, and scores definition completeness, behavior coverage,
+# and intent fulfillment separately. Keeping discovery and judgment apart makes
+# it harder for an early opinion to quietly reshape the feature map.
+
+name: Feature Behavior Audit
+description: Inventory a feature's promised and actual behaviors, judge whether they deliver the intended outcome, and report the gaps.
+tags: [audit, report-only, feature, behavior]
+trigger: manual
+estimate: ~20m
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: true
+  reason: Can complete from repository evidence and explicitly labels unavailable runtime evidence.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  scope: whole product
+  focus: all user-visible and externally callable features
+
+params:
+  - key: scope
+    label: Scope
+    type: text
+    placeholder: whole product, src/billing, admin workflow...
+  - key: focus
+    label: Feature focus
+    type: text
+    placeholder: all features, onboarding, permissions...
+
+phases:
+  context:
+    agent:
+      name: Feature Mapper
+      describes: pass 1 — intent and behavior inventory
+      permissions: full
+      artifacts: [".workflows/out/feature-behavior-audit/pass-1-inventory.md"]
+      prompt: |
+        PASS 1: DISCOVER, DO NOT SCORE.
+
+        Build an evidence-backed inventory for {{ scope }}, focused on
+        {{ focus }}. Do not modify, format, generate, or commit any application,
+        test, documentation, dependency, or configuration file. Non-destructive
+        inspection commands and tests are allowed.
+
+        First read the repository instructions, product requirements, design
+        documents, issue or decision records available in the checkout, routes,
+        commands, public APIs, entry points, tests, and implementation. Use docs
+        and requirements to establish intended outcomes; use executable code and
+        direct runtime observations to establish actual behavior. A test proves
+        behavior only when its assertion meaningfully binds the implementation.
+        When runtime inspection is practical, use it only for the target product
+        and stop anything you started. Never turn a component, helper, database
+        table, or internal mechanism into a product feature unless it delivers a
+        distinct outcome to a user or external caller.
+
+        Identify every feature in scope before describing any one in depth. Merge
+        aliases and variants that deliver the same outcome, but keep genuinely
+        different actor outcomes separate. Do not silently omit unfinished,
+        disabled, hidden, or partially wired features. Give every feature a stable
+        ID (F-01, F-02, ...).
+
+        For each feature record:
+        - name and one-sentence intended outcome
+        - actors and the user or caller problem it is meant to solve
+        - the source of that intent, or `INTENT NOT FOUND`
+        - triggers and entry points
+        - preconditions and permissions
+        - happy-path behaviors in observable, Given/When/Then terms
+        - alternate, empty, boundary, validation, error, retry, cancellation,
+          concurrency, and recovery behaviors that exist
+        - state changes, external effects, and what the actor can observe
+        - configuration, flags, roles, or environment conditions that alter it
+        - tests or runtime observations that bind the claimed behavior
+        - `UNKNOWN` items where behavior cannot be established
+
+        Cite repository claims as file:line. Label other evidence as RUNTIME,
+        COMMAND, or INFERENCE. Never present docs, comments, names, or an intended
+        behavior as proof that the implementation does it.
+
+        Write .workflows/out/feature-behavior-audit/pass-1-inventory.md with:
+        # Pass 1 — Feature and Behavior Inventory
+        ## Scope and evidence limits
+        ## Feature index
+        ## Feature details
+        ## Cross-feature dependencies
+        ## Unresolved evidence
+
+        End the file with `PASS 1 COMPLETE`. You must write the artifact even if
+        the repository has no discoverable product features.
+
+  review:
+    agent:
+      name: Completeness Judge
+      describes: pass 2 — verify, score, and test intent
+      permissions: full
+      artifacts: [".workflows/out/feature-behavior-audit/pass-2-assessment.md"]
+      prompt: |
+        PASS 2: VERIFY AND ASSESS.
+
+        Read .workflows/out/feature-behavior-audit/pass-1-inventory.md. Treat its
+        feature IDs as the audit population, but not its claims as true. Check its
+        citations against the current repository and inspect the relevant code and
+        tests yourself. Correct unsupported claims, split or merge features only
+        when the evidence requires it, and explicitly record any population change.
+        Do not modify, format, generate, or commit repository files. Non-destructive
+        inspection commands and tests are allowed.
+
+        Score every feature using the following fixed rubric. Give each component
+        0 or 1 unless the evidence genuinely supports 0.5. `Not documented`, `not
+        implemented`, and `not verified` are different findings; never convert
+        missing evidence into a passing score.
+
+        FEATURE DEFINITION COMPLETENESS (0-5, display as 0-100):
+        1. actor and problem are identifiable
+        2. trigger and preconditions are identifiable
+        3. intended observable outcome is identifiable
+        4. scope, exclusions, or boundary conditions are identifiable
+        5. failure expectation or success criterion is identifiable
+
+        BEHAVIOR COVERAGE COMPLETENESS (0-5, display as 0-100):
+        1. an end-to-end happy path exists
+        2. relevant alternate, empty, and boundary paths are handled
+        3. invalid input and dependency failures have defined observable outcomes
+        4. permission, concurrency, idempotency, and lifecycle concerns relevant to
+           this feature are handled; award the point when they are demonstrably not
+           applicable and explain why
+        5. state changes and external effects are observable and recoverable enough
+           for the actor to know what happened
+
+        INTENT FULFILLMENT (0-5, display as 0-100):
+        1. the implemented entry point is reachable by the intended actor
+        2. the happy path reaches the intended outcome end to end
+        3. normal alternate conditions preserve that outcome or fail honestly
+        4. failures do not leave the actor with a false success or unsafe partial
+           state
+        5. evidence (binding tests or runtime observation) supports the outcome,
+           rather than only isolated implementation steps
+
+        For each feature, build an intent-to-behavior trace: every intended outcome
+        or success criterion maps to implementing behavior and evidence. Classify
+        each row as SATISFIED, PARTIAL, MISSING, CONTRADICTED, or UNVERIFIED. Then
+        answer the hard question directly: do the implemented behaviors, together,
+        actually complete what this feature is intended to do? Use `yes`, `partly`,
+        `no`, or `unverifiable`, followed by a concise causal explanation.
+
+        Compute the per-feature overall score as:
+        - 25% feature definition completeness
+        - 40% behavior coverage completeness
+        - 35% intent fulfillment
+
+        Round only the displayed 0-100 values. Assign status from the overall score:
+        COMPLETE 90-100, SUBSTANTIAL 75-89, PARTIAL 50-74, HOLLOW 0-49. Use
+        UNVERIFIABLE instead when absent evidence makes the numeric status misleading,
+        while still showing the score. Overall portfolio scores are weighted by
+        feature criticality (critical=3, supporting=2, convenience=1); state and
+        justify each criticality instead of using implementation size as a proxy.
+
+        Write .workflows/out/feature-behavior-audit/pass-2-assessment.md with:
+        # Pass 2 — Completeness and Intent Assessment
+        ## Verification corrections
+        ## Portfolio score calculation
+        ## Per-feature assessments
+        ## Cross-feature gaps and contradictions
+        ## Evidence limits
+
+        Each per-feature assessment must include the three component scores, overall
+        score, status, criticality, intent-to-behavior trace, score deductions, the
+        direct intent-fulfillment answer, and file:line evidence. Rank gaps by the
+        user consequence of the missing behavior, not by how easy it is to fix.
+        End the file with `PASS 2 COMPLETE`. You must write the artifact even when
+        Pass 1 found no features.
+
+  report:
+    agent:
+      name: Report Editor
+      describes: organized feature coverage report
+      artifacts: [".reports/feature-behavior-audit.md"]
+      prompt: |
+        Read both files in .workflows/out/feature-behavior-audit/, starting with
+        pass-2-assessment.md. Produce the final report at
+        .reports/feature-behavior-audit.md. Do not modify or commit any other file.
+
+        Pass 2 is authoritative for corrections and scores. Pass 1 supplies detail
+        only where Pass 2 did not reject or replace it. Do not perform a third
+        analytical pass, add features, repair weak evidence with guesses, or soften
+        a negative conclusion. Preserve file:line citations and evidence labels.
+
+        Use this exact organization:
+        # Feature and Behavior Completeness Audit
+        ## Executive summary
+        Name the strongest conclusion, portfolio scores, counts by status, and the
+        top risk in plain language.
+        ## Scope, method, and confidence
+        Explain the two passes, audited scope, evidence used, and important limits.
+        ## Portfolio scorecard
+        A compact table with feature ID and name, criticality, feature-definition
+        score, behavior-coverage score, intent-fulfillment score, weighted overall,
+        status, and evidence confidence.
+        ## Feature assessments
+        One subsection per feature containing: intended outcome; implemented
+        behaviors; intent-to-behavior trace; score rationale and deductions; direct
+        answer (`yes`, `partly`, `no`, or `unverifiable`); and the smallest behavior
+        changes needed to close confirmed gaps.
+        ## Cross-feature and systemic gaps
+        Missing handoffs, contradictory behaviors, shared failure modes, and features
+        that look complete alone but fail as part of the user journey.
+        ## Prioritized next actions
+        Order actions by user consequence and dependency. Separate missing feature
+        definition, missing behavior, and missing verification work.
+        ## Rubric and evidence appendix
+        Include the scoring formula, status thresholds, feature inventory, evidence
+        ledger, and all unresolved or unverifiable items.
+
+        Clearly distinguish `missing behavior` from `behavior not verified`. Scores
+        must be traceable to the fixed rubric, and every recommended action must name
+        the feature ID and deduction it would address. You must write the report even
+        when no features were found; in that case explain the discovery scope and why
+        no defensible scoring was possible.

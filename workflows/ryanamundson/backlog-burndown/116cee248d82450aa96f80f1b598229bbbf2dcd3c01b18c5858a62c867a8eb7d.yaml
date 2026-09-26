@@ -1,0 +1,129 @@
+# Backlog burndown — the Ralph Wiggum loop, one item per run.
+#
+# Source: Geoffrey Huntley's Ralph technique (ghuntley.com/ralph), the
+# best-known autonomous pattern in the Claude community — Anthropic later
+# shipped it as an official plugin. The whole idea: run the same prompt against
+# a fresh context over and over; progress accumulates in files and git history,
+# not in the model's context window.
+#
+# Console adaptation: one run completes exactly one backlog item and checks it
+# off. The loop is the trigger — flip `trigger` to `hourly` and the console's
+# one-run-at-a-time queue becomes the Ralph loop, with a grade per iteration.
+
+name: Backlog Burndown
+description: Select one actionable backlog item, implement it completely, verify the result, and report what shipped or blocked it.
+tags: [feature, tickets, repairs]
+trigger: manual
+estimate: ~12m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: The backlog, implementation, and verification all live in the isolated repository checkout.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  backlog: TODO.md
+
+params:
+  - key: backlog
+    label: Backlog file
+    placeholder: TODO.md (default)
+
+phases:
+  context:
+    agent:
+      name: Picker
+      describes: choose the one item
+      artifacts: [".workflows/out/backlog-burndown/pick.md"]
+      prompt: |
+        Read {{ backlog }} in this repository. Pick the single topmost item
+        that is not yet done and is small enough to finish in one sitting. Read
+        enough of the codebase around it to restate it precisely. Do not change
+        any files.
+
+        Write .workflows/out/backlog-burndown/pick.md with the Write tool (it
+        creates the directory): the item verbatim, your restatement, the files
+        it touches, and the acceptance check — the command or observation that
+        proves it is done. If {{ backlog }} is missing, empty, or fully done,
+        write `NOTHING TO DO` as the first line and say why. You must write
+        this file in every case.
+
+  plan:
+    agent:
+      name: Planner
+      describes: plan for that item alone
+      artifacts: [".workflows/out/backlog-burndown/plan.md"]
+      prompt: |
+        Read .workflows/out/backlog-burndown/pick.md. If its first line is
+        NOTHING TO DO, write .workflows/out/backlog-burndown/plan.md with
+        `NOTHING TO DO` as the first line and stop. Otherwise plan the picked
+        item and nothing else: the steps in order, the files to change, what is
+        out of scope (everything not the item), and the acceptance check to run
+        at the end. Do not change any source files.
+
+        Write the plan to .workflows/out/backlog-burndown/plan.md with the
+        Write tool. Keep it proportional: one item, one page at most. You must
+        write this file.
+
+  execute:
+    agent:
+      name: Builder
+      describes: finish the item
+      permissions: full
+      artifacts: [".workflows/out/backlog-burndown/build-notes.md"]
+      prompt: |
+        Read .workflows/out/backlog-burndown/plan.md. If its first line is
+        NOTHING TO DO, write .workflows/out/backlog-burndown/build-notes.md
+        with `NOTHING TO DO` as the first line and stop. Otherwise implement
+        the plan, staying strictly inside its scope — the next run picks up the
+        next item, so resist doing two. Follow the repo's existing patterns.
+
+        Run the acceptance check and the repo's test suite; fix what you broke.
+        Do not weaken or delete existing tests.
+
+        Write .workflows/out/backlog-burndown/build-notes.md with the Write
+        tool: what changed file by file, commands run, and their real output
+        summarized. You must write this file even if blocked.
+
+  review:
+    agent:
+      name: Checker
+      describes: does the acceptance check pass?
+      permissions: full
+      artifacts: [".workflows/out/backlog-burndown/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/backlog-burndown/pick.md,
+        plan.md, and build-notes.md. If they say NOTHING TO DO, write
+        .workflows/out/backlog-burndown/review.md with `VERDICT: noop` as the
+        first line and stop.
+
+        Otherwise run the acceptance check from pick.md yourself, run
+        `git diff` and confirm the change stays inside the plan's scope, and
+        confirm no test was weakened. Do not trust build-notes.md; re-run the
+        commands.
+
+        Write .workflows/out/backlog-burndown/review.md with the Write tool:
+        first line `VERDICT: pass`, `VERDICT: fail`, or `VERDICT: noop`, then
+        the evidence and any gaps with file:line. You must write this file.
+
+  report:
+    agent:
+      name: Scribe
+      describes: check off, commit, summarize
+      permissions: full
+      artifacts: [".workflows/out/backlog-burndown/report.md"]
+      prompt: |
+        Read .workflows/out/backlog-burndown/review.md. On `VERDICT: pass`:
+        mark the finished item done in {{ backlog }} exactly the way that file
+        marks done items (checkbox, strikethrough, or a Done section — follow
+        its own convention), then commit the code and backlog change together
+        with a message naming the item. Never push; the operator decides what
+        leaves this machine. On `VERDICT: fail` or `VERDICT: noop`: change
+        nothing and commit nothing.
+
+        Write .workflows/out/backlog-burndown/report.md with the Write tool:
+        the item, the verdict, the commit hash if any, and what the next run
+        should expect to pick up. You must write this file in every case.

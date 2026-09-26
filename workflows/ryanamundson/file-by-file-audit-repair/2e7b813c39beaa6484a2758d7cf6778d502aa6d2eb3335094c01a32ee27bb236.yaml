@@ -1,0 +1,297 @@
+# Durable whole-repository review. Each run advances a bounded batch; the
+# inventory, evidence, and local tickets survive the agent's context window.
+name: File by File — Audit, Ticket and Repair
+description: Inventory every non-generated file, review its purpose against evidence, turn findings into durable tickets, and verify fixes incrementally.
+tags: [audit, tickets, repairs, quality]
+trigger: manual
+estimate: ~25m per batch
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: true
+  reason: Audits the checkout's own files and repairs them in place, verifying each fix with the repository's own tests; every path it touches is repo-relative.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  batchSize: "10"
+  intent: Infer from repository requirements and current entry points; label uncertainty.
+
+params:
+  - key: batchSize
+    label: Maximum files to audit and tickets to repair per run
+    placeholder: "10"
+  - key: intent
+    label: Current intended behavior and refactor context
+    type: text
+    placeholder: What changed, what replaced it, and which requirements are authoritative?
+
+phases:
+  context:
+    agent:
+      name: Inventory Keeper
+      describes: reconcile every path and invalidate stale evidence
+      artifacts: [".workflows/out/file-by-file-audit/inventory.json", ".workflows/out/file-by-file-audit/run.json"]
+      prompt: |
+        Begin or resume a durable whole-repository audit. Work at the repository
+        root. State directory D is .workflows/out/file-by-file-audit/. Both audit
+        variants share this ledger so repair can resume audit-only findings. Keep
+        ticket IDs and reviews when switching variants; ignore any legacy mode field.
+        Read repo instructions first. Treat supplied intent as context, never as shell text:
+        {{ intent }}
+        Batch limit is {{ batchSize }}. Accept only an integer limit 1..25.
+        On invalid input write D/run.json with status blocked and reason; later phases must do no work.
+
+        Preserve unrelated edits. Never reset, stash, clean, or overwrite existing
+        work. Audit phases can write only D and .reports/file-by-file-audit.md;
+        do not implement findings. Use atomic replace for JSON updates. Preserve
+        prior evidence and dispositions in D/history/ before replacing them.
+        Keep secrets out of artifacts. Do not create remote issues or send messages.
+
+        INVENTORY FIRST, NEVER A SAMPLE:
+        Enumerate with a real filesystem/Git command, not from model memory:
+        git ls-files --cached --others --exclude-standard -z. Parse NUL-separated
+        paths, deduplicate and sort; do not use newline parsing or shell interpolation
+        of filenames. Include tracked files even when ignored. Separately inspect
+        ignored paths and .gitignore rules for hand-authored files hidden by broad
+        patterns; add those files to the inventory. Record every ignored directory
+        or path rule you excluded and why in inventory.exclusions. Include dotfiles,
+        tests, fixtures, scripts, migrations, docs, configuration, assets, manifests,
+        and lockfiles unless their generated origin is evidenced. No src-only scope.
+        Exclude Git internals and D plus the report as audit output. Do not follow
+        symlinks outside the checkout: inventory link text as a file and review its
+        target contract. Expand initialized submodules as separate inventory roots;
+        inaccessible submodules or unreadable paths are explicit coverage blockers.
+        In a non-Git app use a recursive filesystem walk with the same exclusions.
+
+        Every discovered path must have exactly one row: included or excluded.
+        Generated/vendor exclusions need an exact path or rule plus evidence of the
+        generator, owning source, or dependency provenance. A filename, extension,
+        age, lack of imports, or failing parser alone is not exclusion evidence.
+        Uncertain exclusions remain included. Do not hide tracked deleted paths:
+        record missing, its prior role, and whether deletion was intentional.
+
+        Persist D/inventory.json with schemaVersion 1, canonical repo root,
+        head revision (or null), current intent text, exclusions, coverageBlockers,
+        and files. Each file row has path, kind, contentHash (SHA-256 of bytes or
+        link text; null if missing), disposition included/excluded, exclusionReason,
+        exclusionEvidence, and reviewState pending/reviewed/blocked/stale.
+        Persist D/reviews.json and D/tickets.json as empty arrays only when absent.
+        Record the initial worktree status, workflow identity and validated integer batchSize,
+        and this run's ID/time in D/run.json.
+
+        RESUME WITHOUT LOSING COVERAGE:
+        Re-enumerate on every run. Retain removed paths as tombstones until their
+        removal is reviewed. Queue new paths. Invalidate a review when its own
+        content, intended-behavior input, or any recorded evidence/dependency hash
+        changed or disappeared. Changes to shared manifests, entry points, config,
+        or requirements invalidate dependent reviews; when the dependency impact
+        cannot be bounded, mark all included reviews stale. Retain previous reviews
+        as history, never count them as current. Reopen affected closed tickets for
+        re-verification. Never silently shrink the denominator to claim completion.
+        Write the inventory before any substantive per-file review. Set run.status
+        ready only after successful enumeration; partial enumeration is blocked.
+
+  plan:
+    agent:
+      name: Batch Planner
+      describes: select pending files or actionable tickets
+      artifacts: [".workflows/out/file-by-file-audit/batch.json"]
+      prompt: |
+        Read D=.workflows/out/file-by-file-audit/ run.json, inventory.json,
+        reviews.json, and tickets.json. If this run is blocked, write batch.json
+        with status blocked and no items. Never reuse a previous run's batch.
+        Limit {{ batchSize }}; use the validated value from run.json.
+
+        Choose up to the limit of included pending/stale files,
+        ordered by path. Revisit blocked files when their blocking condition has
+        changed. Persist the exact path and content hash of each selection. Do not
+        skip tests, docs, config, large files, assets, or suspected dead code. Large
+        files may span runs: persist read ranges and keep pending until the entire
+        file and its relationships have been examined. No truncation counts as read.
+        Inventory omissions found later must be added and queued, never ignored.
+
+        Also select up to the limit of existing open, dependency-ready local
+        tickets for repair. Prefer highest user impact, then stable ID. Include
+        implemented tickets awaiting independent verification after interruption;
+        do not implement them again unless verification fails. Keep the entire
+        remaining queue. Include evidence, affected paths, dependencies and
+        acceptance checks. Do not select dismissed findings.
+
+        Write D/batch.json with run ID, workflow identity, reviewItems, repairItems,
+        and remaining counts. An empty reviewItems list does not prevent repairs;
+        an empty repairItems list does not prevent auditing. Both empty means no
+        eligible work; record why. Never reuse an earlier batch.
+
+  execute:
+    agent:
+      name: File Investigator
+      describes: audit, ticket, then repair a bounded batch
+      artifacts: [".workflows/out/file-by-file-audit/reviews.json", ".workflows/out/file-by-file-audit/tickets.json", ".workflows/out/file-by-file-audit/work-log.md"]
+      prompt: |
+        Read the current run and batch under D=.workflows/out/file-by-file-audit/.
+        A blocked run or both item lists empty does no work; write work-log.md
+        explaining it. Audit reviewItems first, then repair repairItems. Each list
+        has its own validated batch limit. Persist after EACH item so an
+        interrupted run resumes. Preserve all prior rows and unrelated work.
+
+        AUDIT AND TICKET FIRST:
+        Read each selected file fully, in recorded ranges if necessary. For binary
+        assets use suitable metadata, a viewer when available, and consumer checks;
+        unavailable inspection is blocked, not a pass. Determine its intended role
+        using requirements, current callers, contracts, tests, and refactor history.
+        Distinguish authoritative requirements from inference and contradictory docs.
+        Trace both what uses this file and what this file uses. Check indirect use:
+        dynamic imports, framework discovery, routes, exports/public API, reflection,
+        packaging, build/deploy config, commands, fixtures and external consumers.
+        Lack of static imports does not prove dead code. Historical migrations and
+        compatibility shims may still be required. Record that evidence explicitly.
+
+        Check obsolete implementations, mixed old/new abstractions, stale names or
+        contracts, duplicate responsibilities, broken wiring, missing behavior,
+        unreachable branches, wrong configuration, misleading documentation, and
+        tests still validating the pre-refactor design. For tests trace their real
+        production subject and meaningful assertions; passing tests alone do not
+        establish current intent. Run focused checks when feasible; retain actual
+        command, exit code and summarized output, and distinguish NOT RUN from PASS.
+        Inspect all content, not just suspicious lines. Record every finding, even
+        when the fix is outside this file. Do not change application files here.
+
+        Upsert a review in reviews.json keyed by path and content hash, with:
+        - path, contentHash, runId, inspectedRanges (or binary inspection method)
+        - purpose, intentSources, actualBehavior, consumers, dependencies
+        - evidence: file/line citations with content hashes, commands and results
+        - verdict: yes, no, or unresolved; explanation; findingIds
+        - evidenceDependencies: all paths/hashes relied on, including requirements
+        - reviewComplete: true only when the whole file and relevant relationships
+          were examined; unresolved intent or missing verification stays blocked
+        `yes` means current evidence supports its intended role; `no` means an
+        evidenced mismatch, including proven unnecessary code. `unresolved` is not
+        a yes/no guess and never counts as fully reviewed. A reviewed no still counts
+        toward review coverage; it does not count as fixed. A yes may carry optional
+        improvements; confirmed correctness defects require no.
+
+        Create or update a LOCAL ticket for every finding in tickets.json. These
+        records are the default issue tracker and require no external service.
+        Stable IDs A-0001 etc.; never regenerate IDs on resume. Deduplicate by root
+        cause and affected contract, linking every affected file/review to the same
+        ticket when appropriate. Include title, category, severity with user impact,
+        evidence, affectedPaths, proposedChange, acceptanceChecks, dependencies,
+        status open/blocked/implemented/closed/dismissed, and resolutionEvidence.
+        Unknown intent creates an investigation ticket with a concrete question.
+        Optional suggestions also receive an explicit disposition. A dismissal
+        needs evidence/rationale; never silently discard a finding. If a matching
+        existing bead/ticket is known, store its ID as externalId; do not create or
+        update external tickets in this workflow. A restart must not duplicate work.
+
+        THEN REPAIR IN THIS SAME RUN, WITHOUT A MODE SWITCH:
+        After auditing, add newly created actionable tickets to repairItems while
+        keeping total repairItems within batchSize. Persist the final selection
+        before editing source. Prefer user impact, then stable ID; only select
+        dependency-ready work with concrete acceptance checks. Investigations or
+        uncertain intent remain blocked until settled. Do not wait for full-repo
+        audit completion to repair a confirmed finding. Audit-only runs can also
+        supply existing tickets through this shared ledger.
+        Before each repair independently recheck its finding against source and
+        intent; dismiss unsupported claims with evidence instead of applying them.
+        Read the selected tickets and their evidence against CURRENT files. If the
+        premise is stale, reopen investigation instead of blindly applying a fix.
+        Implement only these tickets, preserving unrelated edits. A deletion needs
+        affirmative evidence that no supported caller/contract still needs it.
+        Run acceptance checks and appropriate regression checks. Do not weaken
+        tests or rewrite requirements to obtain green. A failed or unavailable check
+        leaves the ticket open/blocked. Record exact changed files and before/after
+        hashes, commands, results, and regression evidence. Mark implemented when
+        ready for independent review; only the next phase can close it. Do not
+        commit or push application changes in this workflow. Persist each item.
+
+        Write work-log.md for this run with completed items, partial work, actual
+        checks, and blockers. Never claim the entire repository is done from a batch.
+
+  review:
+    agent:
+      name: Evidence Checker
+      describes: independently verify decisions and completed fixes
+      artifacts: [".workflows/out/file-by-file-audit/verification.json"]
+      prompt: |
+        Independently verify THIS run's batch under D=.workflows/out/file-by-file-audit/.
+        On blocked/empty batches write verification.json with that status and stop.
+        Use reviewItems and repairItems from the current batch. Re-read every
+        reviewed file and its cited evidence; preserve pre-repair hashes as history
+        and evaluate repaired files at their new hashes. Do not
+        sample. Check the role against the current architecture, search indirect
+        references before endorsing dead-code findings, and verify test claims
+        against their actual assertions. Challenge unsupported yes verdicts and
+        missed old-version contracts. An incomplete review stays pending; missing
+        evidence stays blocked. Correct reviews and tickets with an audit trail.
+        Ensure every finding has a stable ticket link, including dismissed ones.
+
+        After checking audit evidence, inspect every selected implementation, run its acceptance
+        and relevant regression checks yourself, and verify the intended behavior.
+        Only close an implemented ticket with successful independent checks and
+        resolutionEvidence (commands/results, changed paths/hashes, run ID). A
+        failed check reopens it. An external issue's closed status is not proof.
+        Mark reviews of changed files and evidence dependents stale; update a review
+        to current only after fully reviewing that file again. Do not bulk-mark
+        reviews yes merely because their ticket was closed.
+
+        Recheck the inventory's exclusion evidence, especially broad
+        ignored directories. Add wrongly excluded paths to the pending queue.
+        Persist verification.json with per-item decisions, actual evidence, and
+        unresolved blockers. Never repair source code in this verification phase.
+
+  report:
+    agent:
+      name: Coverage Accountant
+      describes: reconcile coverage separately from remediation
+      artifacts: [".reports/file-by-file-audit.md", ".workflows/out/file-by-file-audit/coverage.json"]
+      prompt: |
+        Read the current artifacts in D=.workflows/out/file-by-file-audit/. If
+        run.json is blocked or missing, report INCOMPLETE with the reason; never use
+        prior success artifacts as evidence for this run.
+
+        Run a programmatic reconciliation using filesystem/Git enumeration and
+        JSON parsing, not mental arithmetic. Persist the reusable reconciliation
+        script in D and execute it, saving command, exit code, and output. Reuse
+        the inventory rules: NUL-safe paths, tracked + untracked + hand-authored
+        ignored files, submodule roots, symlink handling, and explicit exclusions.
+        Rehash files and evidence dependencies and invalidate changes since review.
+        If dependency impact cannot be bounded, invalidate all included reviews.
+        Compare SETS of paths and IDs, not merely equal counts. Verify:
+        - every discovered path has exactly one included/excluded inventory row
+        - every excluded path has provenance evidence; enumeration blockers remain
+        - every included path has at most one current complete review at its hash
+        - removed paths have an explicit reviewed deletion disposition
+        - stale, pending, partial, unreadable and unresolved files cannot count done
+        - every finding links to an existing stable ticket; no dangling IDs
+        - every closed ticket has independent successful resolution evidence
+        Any inconsistency makes coverage incomplete and queues reconciliation work;
+        never overwrite bad evidence with a fabricated pass. Write coverage.json
+        with these checks, denominators, counts and exact remaining path/ID lists.
+
+        Write .reports/file-by-file-audit.md showing TWO separate completion states:
+        Review coverage = current, complete yes/no reviews / included files.
+        Remediation = independently closed actionable tickets / actionable tickets.
+        Dismissed suggestions are listed separately with reasons, never as fixes.
+        Zero included files is N/A, not 100%. Zero tickets means none found so far;
+        it does not imply clean until review coverage is complete.
+        REVIEW COMPLETE requires set equality, no unresolved/stale/partial reviews,
+        no invalid exclusions, no enumeration blockers and successful reconciliation.
+        REMEDIATION COMPLETE additionally requires all actionable tickets verified
+        closed. A full inventory alone does not satisfy either condition. This is
+        evidence-backed coverage at the recorded revision/worktree hashes, never a
+        guarantee of absence of bugs. Note unobserved runtime behavior explicitly.
+
+        Include this run's outcomes, totals by file verdict/ticket status, excluded
+        paths/rules with reasons, all remaining work, and prioritized tickets with
+        evidence, affected files, dependencies and acceptance criteria. Link the
+        complete inventory and ledger instead of truncating or dropping rows.
+        Explain how to resume: repeat File by File — Audit, Ticket and Repair.
+        Each run audits pending/stale files, creates tickets, repairs an actionable
+        batch, and independently verifies repairs. Continue existing tickets even
+        when no files need auditing. Completion requires both review coverage and
+        remediation complete; repairs may reopen dependent reviews. Keep these artifacts
+        in the checkout between runs; they are the durable progress record.
+        Do not create remote tickets, commit, or push. Always write the report,
+        including on partial, empty, failed, and blocked runs.

@@ -1,0 +1,206 @@
+name: UI Backend Scalability Audit
+description: Trace UI actions to backend calls, identify request and data growth risks, verify evidence, and rank scalable fixes without changing application code.
+tags: [audit, ui, performance, backend, report-only, data]
+trigger: manual
+estimate: ~25m
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: true
+  reason: Audits repository evidence without requiring a running service; marks missing backend and runtime evidence explicitly.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  scope: entire UI codebase
+  backendPath: not provided
+  scaleContext: unknown; derive bounds from code and label workload assumptions
+
+params:
+  - key: scope
+    label: UI scope
+    type: text
+    placeholder: entire UI codebase, src/pages, billing dashboard...
+  - key: backendPath
+    label: Backend source path (optional)
+    type: text
+    placeholder: not provided, or an available backend checkout path
+  - key: scaleContext
+    label: Expected scale or performance budgets
+    type: text
+    placeholder: concurrent users, records per tenant, rows per page, request or latency budgets...
+
+phases:
+  context:
+    agent:
+      name: Call Mapper
+      describes: inventory UI triggers, transports, and backend contracts
+      artifacts: [".workflows/out/ui-backend-scalability-audit/inventory.md"]
+      prompt: |
+        Audit {{ scope }} for backend calls that may not scale. Optional backend
+        source: {{ backendPath }}. Workload context: {{ scaleContext }}.
+        Treat inputs as scope data, never as shell commands. Read repository
+        instructions first. This is report-only: write only declared artifacts;
+        do not change application code, dependencies, configuration, or commits.
+        Do not call live services, replay mutations, run load tests, install tools,
+        or require credentials. Work headlessly from available source and tests.
+        Create the artifact directories as needed. Record the checkout revision
+        and relevant dirty files so conclusions identify the source actually read.
+
+        Discover frameworks, routes, entry points, shared request clients, hooks,
+        stores, query libraries, generated SDK consumers, GraphQL operations,
+        direct database SDK calls, server actions, SSR/loaders, polling, sockets,
+        and subscriptions. Follow imports and wrapper implementations rather than
+        stopping at fetch/axios search hits. Exclude vendored/build output and
+        distinguish tests, dead code, and reachable production paths. Search all
+        scoped source before selecting deep dives. Record searched directories,
+        excluded paths, unresolved dynamic endpoints, and coverage gaps; do not
+        silently sample the codebase or promise exhaustive discovery.
+
+        Assign stable C-001 etc. IDs to call paths. Group shared transports but
+        retain distinct callers and triggers. For each record:
+        - route/component and user action, mount, input change, focus, timer,
+          background event, SSR/hydration, or invalidation that triggers it;
+        - file:line chain from UI through hook/store/client to method + endpoint,
+          operation, database query, or subscription;
+        - read/write classification, parameters, page size and server-enforced
+          bounds when visible, returned data shape, and local filtering/sorting;
+        - calls per trigger, repeated component instances, loop/fanout structure,
+          dependencies, cache/dedup scope, retries, cancellation and cleanup;
+        - reachable backend handler/storage/query evidence when the supplied
+          backend path or same repository makes it available. A missing backend
+          is an evidence gap, not a reason to stop.
+
+        Cite implementation lines for every claimed bound or behavior; docs and
+        comments are intent only. Do not infer database scans from endpoint names.
+        Write inventory.md under .workflows/out/ui-backend-scalability-audit/,
+        including scope, source revision, coverage ledger, call-path inventory,
+        shared mechanisms, and unknowns. If nothing is found or access is blocked,
+        still write the artifact with explicit coverage and limits.
+
+  plan:
+    agent:
+      name: Growth Analyst
+      describes: model amplification and identify scalability candidates
+      artifacts: [".workflows/out/ui-backend-scalability-audit/candidates.md"]
+      prompt: |
+        Read .workflows/out/ui-backend-scalability-audit/inventory.md and inspect
+        the relevant implementation. Report-only: write only this phase's declared
+        artifact. Do not contact live services or modify application files.
+        Workload context is {{ scaleContext }}; do not treat assumed values as
+        measurements or use a universal arbitrary request-count threshold.
+
+        Assess every call ID, including shared code affecting many routes, for:
+        - N+1/per-row requests, nested loops, serial waterfalls, unbounded
+          Promise.all/concurrency, and client-side joins across whole collections;
+        - fetch-all or auto-drained pagination, oversized page limits, missing
+          server bounds, overfetching, client-side filter/sort/aggregation, large
+          uploads/exports, and expensive count/search or deep offset pagination;
+        - unstable effect dependencies, render-triggered calls, repeated mounts,
+          duplicate SSR/hydration fetches, keystroke calls without appropriate
+          debounce/cancellation, stale response races, and infinite refetch loops;
+        - cache keys, stale times, deduplication, broad invalidation and refetch
+          amplification, tenant/user cache isolation, and cache stampedes;
+        - polling frequency, overlapping work, hidden-tab activity, retry storms,
+          missing backoff/jitter/limits, reconnect floods, leaked subscriptions,
+          unbounded listeners, and overly broad real-time query scope;
+        - repeated writes, autosave amplification, retry idempotency, and UI
+          triggers that queue expensive synchronous backend work;
+        - backend query fanout, unbounded reads, missing effective indexes, and
+          non-sargable filters ONLY when actual backend evidence supports them.
+
+        For each candidate assign S-001 etc. and affected call IDs. State the exact
+        trigger, multiplicative dimensions, existing controls, and the causal
+        chain to backend load, transferred bytes, or user latency. Keep these
+        separate: bounding concurrency does not reduce total work; virtualization
+        does not bound fetched data; caching does not fix cold-cache complexity;
+        browser cancellation need not cancel server work. Small bounded fanout,
+        intentional polling, and necessary sequential dependencies are not
+        automatically defects. Account for library defaults from checked-in
+        version/source/config evidence; otherwise mark semantics unverified.
+
+        Derive symbolic request/work growth from source (for example rows times
+        requests per row, or sessions times polls per second). Explicitly define
+        variables and state which bounds are enforced versus assumed. Include
+        cold/warm cache and relevant remount, data-growth, tenant-growth, failure,
+        and concurrent-user scenarios. Numeric examples are optional and must be
+        labeled hypothetical; never invent timings, payload sizes, or breakpoints.
+        No benchmark or load generation is authorized.
+
+        Write candidates.md with a disposition for EVERY call ID: candidate,
+        bounded by cited controls, or unknown. For candidates include evidence,
+        growth model, impact, confidence, a minimal fix, tradeoffs (freshness,
+        correctness, permissions, latency), and a concrete regression acceptance
+        criterion. Include coverage gaps and rejected suspicions with reasons.
+
+  review:
+    agent:
+      name: Evidence Reviewer
+      describes: verify call paths and challenge false positives
+      artifacts: [".workflows/out/ui-backend-scalability-audit/verified.md"]
+      prompt: |
+        Read inventory.md and candidates.md under
+        .workflows/out/ui-backend-scalability-audit/. Independently reopen each
+        candidate's cited source. Write only this phase's declared artifact; no
+        application changes, live-service calls, load tests, or dependency installs.
+
+        Verify reachability and actual trigger frequency, loop bounds, request
+        semantics, pagination, batching, effective cache/dedup, retries and cleanup.
+        Follow wrappers and inspect existing binding tests. Check whether claimed
+        server bounds or query costs are actually proved. Reject development-only
+        duplicate renders, unreachable code, already bounded paths, and unsupported
+        library assumptions. Separate a proven client amplification mechanism from
+        its unmeasured operational impact. Missing runtime evidence does not erase
+        a source-proven issue, and a missing index cannot be proved from UI code.
+
+        Classify each candidate CONFIRMED (mechanism established), CONDITIONAL
+        (state the condition requiring verification), or REJECTED (cite the control
+        or contrary evidence). Set priority P1 for unbounded/self-sustaining work or
+        a demonstrated severe budget breach on a reachable path; P2 for material
+        growth/fanout risk; P3 for bounded inefficiency. Explain priority against
+        the available workload context; do not claim outages without evidence.
+
+        Ensure every inventory call ID has a disposition. Record omitted paths as
+        gaps rather than silently treating them as safe. Deduplicate root causes
+        while retaining all affected calls. For each retained finding preserve
+        file:line evidence, trigger, growth model, confidence, workload assumptions,
+        concrete remediation, owner layer (UI/API/storage), and a regression check
+        with controllable workload, observable request/work bound, and expected
+        behavior. Describe tests to run; execution is not required for this static
+        audit. Clearly distinguish proposed checks from existing test evidence.
+        Write verified.md even when no candidates survive or evidence is blocked.
+
+  report:
+    agent:
+      name: Report Editor
+      describes: deliver prioritized fixes and complete coverage evidence
+      artifacts: [".reports/ui-backend-scalability-audit.md"]
+      prompt: |
+        Read inventory.md, candidates.md, and verified.md under
+        .workflows/out/ui-backend-scalability-audit/. Write only
+        .reports/ui-backend-scalability-audit.md; create its directory if needed.
+        Verified findings and corrections are authoritative. Do not add new claims,
+        execute tests, change application files, or contact services.
+
+        Include:
+        1. Executive verdict: confirmed/conditional counts, largest established
+           growth mechanism, and whether coverage is complete or incomplete.
+           No findings means no issues found within stated coverage, not proof
+           that the system scales. Do not assert a supported user/record capacity.
+        2. A UI action -> call -> backend work diagram for the top findings,
+           labeling any unobserved backend segment as unknown.
+        3. Prioritized findings with stable IDs, affected routes and calls,
+           classification, priority rationale, file:line citations, exact trigger,
+           existing controls, symbolic growth, assumptions, and evidence limits.
+        4. Remediation sequence: smallest effective change, UI/API/storage owner,
+           dependencies, correctness/freshness tradeoffs, and specific regression
+           acceptance checks. Separate confirmed fixes from investigation work.
+        5. Coverage ledger: every call ID and final disposition, directories
+           reviewed/excluded, rejected candidates and why, missing backend/runtime
+           evidence, source revision and dirty-file caveats. Preserve unknowns.
+        6. Validation performed versus proposed. This is a source audit, not a
+           load-test result; cite only commands or tests actually recorded.
+
+        Write the report even for an empty inventory or blocked audit; clearly
+        mark INCOMPLETE and explain what evidence is needed when appropriate.

@@ -1,0 +1,158 @@
+# Security pass — the "paranoid security review" as a whole-repo sweep.
+#
+# Source: Anthropic ships this as a first-party pattern (the /security-review
+# command and the security-reviewer subagent example in "Best practices for
+# Claude Code"), and it recurs in every 2026 workflow roundup as the pass teams
+# run before a release. The vulnerability classes below are Anthropic's own
+# list: injection, auth flaws, exposed secrets, unsafe data handling.
+#
+# Report-only: findings go to a report, nothing is auto-fixed. A missing
+# authorization check is a judgment call no unattended agent should make alone.
+
+name: Security Pass
+description: Audit the repository for exploitable security risks, validate each finding, apply safe fixes, and report remaining exposure.
+tags: [security, audit, repairs]
+trigger: manual
+estimate: ~12m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Static repository security review that does not probe a deployed or private environment.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  scope: src
+
+params:
+  - key: scope
+    label: Security review scope
+    placeholder: src (default)
+
+phases:
+  context:
+    agent:
+      name: Mapper
+      describes: attack surface map
+      artifacts: [".workflows/out/security-pass/surface.md"]
+      prompt: |
+        Map the attack surface of this repository, focusing on {{ scope }}. Do
+        not change any files. Find: the entry points (HTTP handlers, CLI args,
+        IPC, file readers) where external input arrives, where authentication
+        and authorization decisions happen, how secrets and config are loaded,
+        and what talks to the network or the filesystem with user-influenced
+        values.
+
+        Write .workflows/out/security-pass/surface.md with the Write tool (it
+        creates the directory): each surface with file:line and one line on
+        what reaches it. You must write this file.
+
+  plan:
+    agent:
+      name: Threat Planner
+      describes: which classes apply here
+      artifacts: [".workflows/out/security-pass/threat-plan.md"]
+      prompt: |
+        Read .workflows/out/security-pass/surface.md. Decide which
+        vulnerability classes are live for this codebase and where each hunter
+        should look first: a repo with no SQL has no SQL injection, a repo with
+        rendered HTML has XSS. Do not change any files.
+
+        Write .workflows/out/security-pass/threat-plan.md with the Write tool:
+        for each class (injection, auth, secrets and config, data handling),
+        the specific files worth reading and the specific mistake to look for
+        there. You must write this file.
+
+  execute:
+    fanout:
+      - name: Injection
+        describes: SQL, XSS, command injection
+        artifacts: [".workflows/out/security-pass/findings-injection.md"]
+        prompt: |
+          Read .workflows/out/security-pass/threat-plan.md and hunt for
+          injection in {{ scope }}: user input reaching SQL, shell commands,
+          HTML rendering, eval-like sinks, or format strings without
+          sanitization. Trace each path from entry to sink before claiming it.
+
+          Write findings to .workflows/out/security-pass/findings-injection.md
+          with the Write tool: file:line, the tainted path, the payload that
+          exploits it. No findings is a valid result — write the file saying
+          so. Do not change any source files.
+      - name: Auth
+        describes: authn and authz flaws
+        artifacts: [".workflows/out/security-pass/findings-auth.md"]
+        prompt: |
+          Read .workflows/out/security-pass/threat-plan.md and hunt for
+          authentication and authorization flaws in {{ scope }}: endpoints or
+          operations missing a permission check, checks done client-side only,
+          IDs accepted from the client without ownership verification, session
+          or token handling mistakes.
+
+          Write findings to .workflows/out/security-pass/findings-auth.md with
+          the Write tool: file:line and who gets to do what they should not.
+          No findings is a valid result — write the file saying so. Do not
+          change any source files.
+      - name: Secrets
+        describes: credentials and config
+        artifacts: [".workflows/out/security-pass/findings-secrets.md"]
+        prompt: |
+          Read .workflows/out/security-pass/threat-plan.md and hunt for secret
+          and configuration problems across the repo: credentials, API keys, or
+          tokens committed in code or config, secrets logged or sent to
+          clients, insecure defaults (debug on, permissive CORS, weak crypto
+          parameters).
+
+          Write findings to .workflows/out/security-pass/findings-secrets.md
+          with the Write tool: file:line and the exposure. No findings is a
+          valid result — write the file saying so. Do not change any source
+          files.
+      - name: Data Handling
+        describes: traversal, SSRF, deserialization
+        artifacts: [".workflows/out/security-pass/findings-data.md"]
+        prompt: |
+          Read .workflows/out/security-pass/threat-plan.md and hunt for unsafe
+          data handling in {{ scope }}: path traversal from user-supplied
+          names, requests to user-controlled URLs (SSRF), unsafe
+          deserialization, zip or archive extraction without path checks,
+          unbounded reads.
+
+          Write findings to .workflows/out/security-pass/findings-data.md with
+          the Write tool: file:line and the hostile input that abuses it. No
+          findings is a valid result — write the file saying so. Do not change
+          any source files.
+
+  review:
+    agent:
+      name: Skeptic
+      describes: exploitable or theoretical?
+      artifacts: [".workflows/out/security-pass/verified.md"]
+      prompt: |
+        Read the four findings files in .workflows/out/security-pass/. For each
+        finding, try to refute it against the real code: is the input actually
+        reachable by an attacker, or only by the operator's own config? Is
+        there a sanitizer upstream the hunter missed? Discard theoretical
+        findings; keep what a hostile user of this specific system could
+        exploit, and give each survivor a severity: critical, high, medium, or
+        low.
+
+        Write .workflows/out/security-pass/verified.md with the Write tool:
+        surviving findings with severity, file:line, and the exploit path in
+        two sentences; refuted ones listed one line each at the bottom. You
+        must write this file. Do not change any source files.
+
+  report:
+    agent:
+      name: Reporter
+      describes: ranked security report
+      artifacts: [".workflows/out/security-pass/security-report.md"]
+      prompt: |
+        Read .workflows/out/security-pass/verified.md and surface.md. Write the
+        final report to .workflows/out/security-pass/security-report.md with
+        the Write tool: a three-line summary (surfaces mapped, findings
+        confirmed, worst severity), then each confirmed finding ranked by
+        severity with file:line, exploit path, and a concrete remediation in
+        one or two sentences. If nothing was confirmed, say so and name the
+        classes that were checked, so a clean report still shows its coverage.
+        Do not change any source files.

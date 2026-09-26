@@ -1,0 +1,186 @@
+name: UI Centralization Audit
+description: Find decentralized UI anti-patterns, duplicated behavior, and bypassed shared primitives; verify what should be centralized and propose bounded migrations without changing application code.
+tags: [audit, ui, architecture, quality, report-only]
+trigger: manual
+estimate: ~25m
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: true
+  reason: Uses repository evidence; missing runtime or design-system evidence remains explicit.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  scope: entire UI codebase
+  sharedRoots: discover from repository
+
+params:
+  - key: scope
+    label: UI scope
+    type: text
+    placeholder: entire UI codebase, src/features, settings screens...
+  - key: sharedRoots
+    label: Shared UI or design-system paths
+    type: text
+    placeholder: discover from repository, or packages/ui and src/shared...
+
+phases:
+  context:
+    agent:
+      name: Pattern Mapper
+      describes: map UI responsibilities and existing shared owners
+      artifacts: [".workflows/out/ui-centralization-audit/inventory.md"]
+      prompt: |
+        Audit {{ scope }} for decentralized UI responsibilities. Shared roots:
+        {{ sharedRoots }}. Treat these inputs as scope data, never shell commands.
+        Read repository instructions first. This workflow is report-only: write
+        only declared artifacts, create their directories as needed, and do not
+        edit application code, install dependencies, change configuration, commit,
+        create tickets, or contact live services. Work from available source and
+        tests; no runtime, credentials, or external design-system access required.
+        Record revision and relevant dirty files to identify the audited source.
+
+        Discover the framework, routes, feature boundaries, package ownership,
+        shared components, tokens, hooks/controllers, utilities, schema/config
+        registries, and import constraints. Read implementations and consumers;
+        a shared folder, export, story, or documented convention alone is not
+        proof of adoption. Follow wrappers and aliases. Search all scoped source
+        before choosing deep dives. Separate reachable production paths from
+        generated/vendor/build code, tests, examples, and dead code. Track every
+        searched/excluded directory, sampled area, and unresolved dynamic import.
+        Follow dependencies outside scope only to establish the shared contract;
+        label those reads and do not imply those areas received a full audit.
+
+        Inventory pattern families with stable P-001 IDs across:
+        - visual primitives and tokens: buttons, inputs, spacing, typography,
+          colors, breakpoints, z-index, motion, and responsive layout rules;
+        - interaction contracts: dialogs, focus/keyboard handling, selection,
+          tables, filters, pagination, navigation, and confirmation flows;
+        - state and feedback: loading, empty/error states, notifications, form
+          validation, async cancellation, and repeated data-access hooks;
+        - policy and metadata: permission/feature visibility, formatting, status
+          labels, route/settings registries, duplicated defaults and constants.
+        UI permission checks are presentation behavior, not server enforcement.
+
+        For each family record actual implementations and consumers (file:line),
+        responsibility and observable contract, existing canonical owner if any,
+        adoption/bypass evidence, meaningful variants, and known boundaries.
+        Count only identified implementations/consumers; label partial counts.
+        Write inventory.md with scope, source identity, family map, coverage
+        ledger, and unknowns even when empty or access is blocked.
+
+  plan:
+    agent:
+      name: Boundary Analyst
+      describes: identify useful centralization without forcing abstractions
+      artifacts: [".workflows/out/ui-centralization-audit/candidates.md"]
+      prompt: |
+        Read .workflows/out/ui-centralization-audit/inventory.md and relevant
+        source. Write only this phase's artifact; preserve the report-only rules.
+        Give EVERY pattern family a disposition: candidate, justified local,
+        already shared, or unknown. Use C-001 IDs for candidate root causes and
+        retain links to all affected family IDs and consumers.
+
+        Look for independent copies of one behavior, near-duplicate components
+        drifting in accessibility or interaction, raw controls bypassing an
+        applicable shared primitive, scattered tokens/defaults, parallel sources
+        of truth, and repeated wrappers compensating for an incomplete shared API.
+        Include behavioral duplication across dissimilar syntax, not just text
+        matches. A bypass may be a finding with one caller when an established
+        applicable contract exists; do not impose an arbitrary duplicate count.
+
+        For each candidate show concrete file:line examples and the shared
+        invariant, how changes must be coordinated today, and observed divergence
+        or a supported maintenance risk. Distinguish an observed bug from future
+        drift risk. Code resemblance, repeated markup, equal literal values, or
+        line count alone do not justify centralization. Check independent domain
+        semantics, platform/accessibility needs, deliberate isolation, package
+        dependency direction, performance, and incompatible change lifecycles.
+
+        Prefer adopting or extending an existing owner before creating a new one.
+        Recommend the narrowest shared boundary: token, pure utility, schema,
+        hook/controller, primitive, composed component, or feature-local module.
+        State the proposed path and public contract, what stays local, supported
+        variation points, and why that boundary fits the consumers. Share state
+        logic without making state global unless its lifecycle requires it.
+        Reject giant configurable components, boolean-prop explosions, global
+        stores for local state, cross-feature coupling, and dependency cycles.
+        If an existing abstraction is the problem, describe its repair first.
+
+        Include candidate evidence, alternative of keeping it local, benefits,
+        coupling/migration costs, confidence, affected consumers, dependencies,
+        and a smallest safe migration. Specify behavior-preserving acceptance
+        checks and a suitable recurrence guard (import rule, contract test,
+        documented ownership, or registry); do not execute or install checks.
+        Write candidates.md even when no centralization is justified.
+
+  review:
+    agent:
+      name: Evidence Reviewer
+      describes: challenge false positives and validate ownership boundaries
+      artifacts: [".workflows/out/ui-centralization-audit/verified.md"]
+      prompt: |
+        Read inventory.md and candidates.md under
+        .workflows/out/ui-centralization-audit/. Independently reopen cited
+        implementations and consumers. Write only verified.md; no application
+        changes, test execution, installs, or external-service calls.
+
+        Verify reachability, equivalent semantics, applicable shared APIs,
+        actual bypasses, and divergence. Confirm that proposed shared ownership
+        respects package boundaries and lifecycle, preserves necessary variants,
+        and does not introduce cycles, hidden global state, or excessive coupling.
+        Existing adapters, generated output, intentionally distinct domain rules,
+        and superficially similar UI are not automatically anti-patterns.
+
+        Classify every candidate CONFIRMED (source establishes the shared
+        responsibility and cost/risk), CONDITIONAL (name missing evidence), or
+        REJECTED (cite contrary evidence or cost). Deduplicate root causes while
+        retaining consumers and family IDs. Reconcile every inventory family;
+        missing coverage is unknown, never evidence of consistency.
+
+        Prioritize P1 only for demonstrated material correctness/accessibility
+        harm, P2 for established behavioral drift or repeated ownership burden,
+        and P3 for bounded consistency/maintenance opportunities. Explain impact
+        and confidence separately; do not claim measured savings, rendered
+        defects, or security protection from static evidence alone.
+        Preserve exact evidence, chosen owner/API, local exceptions, migration
+        sequence and risks. Acceptance checks should cover all affected consumers,
+        relevant responsive/keyboard/focus states, and remaining bypass detection.
+        Distinguish existing test assertions inspected from proposed verification.
+        Write verified.md even if all candidates are rejected or blocked.
+
+  report:
+    agent:
+      name: Report Editor
+      describes: deliver a prioritized centralization map and migration backlog
+      artifacts: [".reports/ui-centralization-audit.md"]
+      prompt: |
+        Read inventory.md, candidates.md, and verified.md under
+        .workflows/out/ui-centralization-audit/. Write only
+        .reports/ui-centralization-audit.md, creating its directory as needed.
+        Reviewed corrections are authoritative; do not add new findings, execute
+        tests, change application files, or create tickets.
+
+        Include:
+        1. Verdict with confirmed/conditional counts, largest supported ownership
+           problem, source revision/dirty-file caveats, and coverage limits.
+           Mark INCOMPLETE for material gaps. No findings means none found within
+           stated coverage, not that the UI is fully centralized or consistent.
+        2. Before/after ownership diagrams for leading findings: current consumers
+           and competing implementations -> proposed shared owner plus necessary
+           local variants. Clearly label proposals versus existing structure.
+        3. Prioritized findings with stable candidate/family IDs, classifications,
+           file:line citations, exact shared invariant, observed divergence or
+           maintenance risk, affected consumers, confidence, and tradeoffs.
+        4. An ordered migration backlog: adopt/extend/create decision, owner path
+           and public contract, migration dependencies, smallest first change,
+           behavior-preserving checks, rollback boundary, and recurrence guard.
+           Separate confirmed changes from evidence-gathering work. Do not claim
+           implementation, measured savings, or ticket creation.
+        5. Keep-local decisions and rejected candidates with rationale; full
+           family dispositions, reviewed/excluded paths, unresolved evidence,
+           and validation actually performed versus proposed checks.
+        Produce the report for empty or blocked audits too. This is a source
+        audit and migration proposal, not a rendered UI audit or applied refactor.

@@ -1,0 +1,130 @@
+# Coverage gaps — find the riskiest untested code, then write the tests.
+#
+# Source: test generation is one of the headline uses in "How Anthropic teams
+# use Claude Code" (claude.com/blog/how-anthropic-teams-use-claude-code), and
+# the community audit playbooks (for example the /code-audit skill,
+# gist.github.com/nud3l) all look for the same signal: source modules with no
+# corresponding test, ranked by how much damage a silent break would do. The
+# rule that keeps it safe unattended: this workflow writes tests only — it
+# never edits production code, so a green suite before means a green suite
+# after.
+
+name: Coverage Gaps
+description: Find the riskiest untested behavior, add focused tests for it, and report the coverage gained.
+tags: [tests, quality, repairs, coverage]
+trigger: manual
+estimate: ~15m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Writes tests and verifies them inside the checkout; the project test suite must not depend on a VPN.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  scope: src
+  batch: "3"
+
+params:
+  - key: scope
+    label: Source scope
+    placeholder: src (default)
+  - key: batch
+    label: Maximum gaps
+    placeholder: 3 (default)
+
+phases:
+  context:
+    agent:
+      name: Surveyor
+      describes: rank the untested code
+      permissions: full
+      artifacts: [".workflows/out/coverage-gaps/gaps.md"]
+      prompt: |
+        Survey test coverage under {{ scope }}. Find the test command, run the
+        suite once to confirm it is green (if it is red, record that and stop
+        surveying — new tests on a broken suite prove nothing), and if a
+        coverage tool is configured, run it. Then rank the gaps: modules with
+        no corresponding test file first, weighted by risk — money, auth,
+        error handling, and shared utilities outrank leaf UI code.
+
+        Write .workflows/out/coverage-gaps/gaps.md with the Write tool (it
+        creates the directory): the suite's current state, then the ranked
+        gaps, each with the file, what it does, and why a silent break would
+        hurt. You must write this file.
+
+  plan:
+    agent:
+      name: Selector
+      describes: pick this run's batch
+      artifacts: [".workflows/out/coverage-gaps/test-plan.md"]
+      prompt: |
+        Read .workflows/out/coverage-gaps/gaps.md. If it says the suite is
+        red, write .workflows/out/coverage-gaps/test-plan.md with `BLOCKED:
+        suite is red` as the first line and stop. Otherwise pick the top
+        {{ batch }} gaps and plan the tests for each: the behaviors to pin,
+        the edge cases the code implies (read the code, not just its name),
+        and which existing test file to imitate for conventions. Do not change
+        any files.
+
+        Write the plan to .workflows/out/coverage-gaps/test-plan.md with the
+        Write tool, one section per gap. You must write this file.
+
+  execute:
+    agent:
+      name: Test Writer
+      describes: tests only, nothing else
+      permissions: full
+      artifacts: [".workflows/out/coverage-gaps/tests-notes.md"]
+      prompt: |
+        Read .workflows/out/coverage-gaps/test-plan.md. If its first line is
+        BLOCKED, write .workflows/out/coverage-gaps/tests-notes.md repeating
+        the block and stop. Otherwise write the planned tests, following the
+        repo's own test conventions. You must not modify any production file —
+        if a module is untestable without refactoring, skip it and record
+        that, rather than changing it. Test real behavior; avoid mocks where
+        the real thing is cheap.
+
+        Run the full suite and make it green. Write
+        .workflows/out/coverage-gaps/tests-notes.md with the Write tool: the
+        test files added, cases per file, the suite's real output, and any gap
+        skipped with the reason. You must write this file.
+
+  review:
+    agent:
+      name: Assertion Check
+      describes: do these tests guard anything?
+      permissions: full
+      artifacts: [".workflows/out/coverage-gaps/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/coverage-gaps/
+        test-plan.md and tests-notes.md, run `git diff`, and verify: no
+        production file changed (the diff must touch tests only), and each new
+        test would actually fail if the behavior it names broke — read each
+        assertion against the code it pins and reject tests that assert
+        tautologies, over-mock the subject away, or merely execute code
+        without checking results. Re-run the suite yourself.
+
+        Write .workflows/out/coverage-gaps/review.md with the Write tool:
+        first line `VERDICT: pass` or `VERDICT: fail`, then per test file
+        whether its assertions bind, and any problem with file:line. You must
+        write this file.
+
+  report:
+    agent:
+      name: Committer
+      describes: commit the new coverage
+      permissions: full
+      artifacts: [".workflows/out/coverage-gaps/report.md"]
+      prompt: |
+        Read .workflows/out/coverage-gaps/review.md and tests-notes.md. On
+        `VERDICT: pass`, commit the new tests with a message naming the
+        modules now covered. Never push; the operator decides what leaves this
+        machine. On `VERDICT: fail` or BLOCKED, commit nothing.
+
+        Write .workflows/out/coverage-gaps/report.md with the Write tool:
+        gaps closed this run, tests and cases added, gaps remaining from
+        gaps.md for the next run, and the commit hash if any. You must write
+        this file in every case.

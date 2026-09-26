@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1790389261096,
+  "generatedAt": 1790457342264,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -13,8 +13,8 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "23598a6a0595f028386cc8ca1ef3d96a7b6ccbf495eaf5b22cf67792c411a402",
-      "latestBytes": 8580,
+      "latestVersion": "a178f4f3f7ee5e18dd10d5490305e310d6520f32e907972707ce8ab5423074f5",
+      "latestBytes": 8703,
       "trigger": "manual",
       "estimate": "~12m",
       "enabled": true,
@@ -32,6 +32,10 @@
           "placeholder": "correctness, security, and test coverage (default)"
         }
       ],
+      "inputs": {
+        "base": "main",
+        "focus": "correctness, security, and test coverage"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Uses only the checked-out repository and returns a review report; no private services are needed.",
@@ -41,7 +45,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/adversarial-review.yaml"
     },
@@ -108,6 +112,12 @@
           }
         }
       ],
+      "inputs": {
+        "mode": "demo",
+        "configPath": ".security/model-target.json",
+        "demoBehavior": "follow",
+        "policyMode": "observe"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
@@ -118,7 +128,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-attack-surface-suite.yaml"
     },
@@ -176,6 +186,11 @@
           }
         }
       ],
+      "inputs": {
+        "mode": "demo",
+        "configPath": ".security/model-target.json",
+        "demoBehavior": "follow"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
@@ -186,7 +201,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-prompt-injection.yaml"
     },
@@ -230,6 +245,10 @@
           }
         }
       ],
+      "inputs": {
+        "mode": "demo",
+        "evidencePath": ".security/coverage.json"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Uses a bundled local evaluator and operator-supplied endpoint evidence.",
@@ -239,7 +258,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-protection-audit.yaml"
     },
@@ -283,6 +302,10 @@
           }
         }
       ],
+      "inputs": {
+        "mode": "demo",
+        "evidencePath": ".security/protection.json"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Evaluates local endpoint test evidence using a bundled deterministic checker. Does not launch live tests.",
@@ -292,7 +315,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-protection-check.yaml"
     },
@@ -350,6 +373,11 @@
           }
         }
       ],
+      "inputs": {
+        "mode": "demo",
+        "configPath": ".security/model-target.json",
+        "demoBehavior": "follow"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
@@ -360,7 +388,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-tool-permissions.yaml"
     },
@@ -388,6 +416,9 @@
           "placeholder": "TODO.md (default)"
         }
       ],
+      "inputs": {
+        "backlog": "TODO.md"
+      },
       "cloud": {
         "compatible": true,
         "reason": "The backlog, implementation, and verification all live in the isolated repository checkout.",
@@ -398,7 +429,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/backlog-burndown.yaml"
     },
@@ -448,6 +479,11 @@
           "placeholder": "docs/behavior (default)"
         }
       ],
+      "inputs": {
+        "coverage": "One feature",
+        "feature": "",
+        "out": "docs/behavior"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Traces repository code and returns documentation changes without requiring a deployed environment.",
@@ -457,7 +493,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/behavior-doc.yaml"
     },
@@ -496,6 +532,10 @@
           ]
         }
       ],
+      "inputs": {
+        "targets": "all",
+        "mode": "static"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Runs the checkout's own contract audit, its lints, and the bundled grading helper on the host.",
@@ -507,7 +547,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml"
     },
@@ -551,6 +591,11 @@
           "placeholder": "all, or a comma-separated list such as dangling-reference,uncoupled-number"
         }
       ],
+      "inputs": {
+        "scope": "",
+        "mode": "fix",
+        "kinds": "all"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Reads the checkout, runs a bundled Node scanner, and edits comments only. Needs no network and no browser.",
@@ -561,7 +606,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/comment-burden.yaml"
     },
@@ -595,6 +640,10 @@
           "placeholder": "3 (default)"
         }
       ],
+      "inputs": {
+        "scope": "src",
+        "batch": "3"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Writes tests and verifies them inside the checkout; the project test suite must not depend on a VPN.",
@@ -605,7 +654,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/coverage-gaps.yaml"
     },
@@ -633,6 +682,9 @@
           "placeholder": "src (default)"
         }
       ],
+      "inputs": {
+        "scope": "src"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Repository-only cleanup with build and test verification; private integration tests must be excluded.",
@@ -643,7 +695,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/dead-code-sweep.yaml"
     },
@@ -673,6 +725,9 @@
           "placeholder": "package.json (default)"
         }
       ],
+      "inputs": {
+        "manifest": "package.json"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Package install and advisory checks require an explicitly internet-enabled cloud environment.",
@@ -684,7 +739,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/dep-audit.yaml"
     },
@@ -712,6 +767,9 @@
           "placeholder": "README.md (default)"
         }
       ],
+      "inputs": {
+        "docs": "README.md"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Checks documentation against files in the repository and returns documentation changes.",
@@ -721,7 +779,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/doc-sync.yaml"
     },
@@ -765,6 +823,11 @@
           ]
         }
       ],
+      "inputs": {
+        "task": "Pick the highest-value small improvement you can find in this repo (a TODO, a promised-but-missing behavior, an obvious gap) and build it. Replace this input with a real task description for a directed run.",
+        "constraints": "none beyond repository rules",
+        "approach": "recommend"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Designed for an isolated checkout, provided the repository verification commands need no private network.",
@@ -775,7 +838,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/explore-plan-code.yaml"
     },
@@ -811,6 +874,10 @@
           "placeholder": "all features, onboarding, permissions..."
         }
       ],
+      "inputs": {
+        "scope": "whole product",
+        "focus": "all user-visible and externally callable features"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Can complete from repository evidence and explicitly labels unavailable runtime evidence.",
@@ -820,7 +887,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/feature-behavior-audit.yaml"
     },
@@ -855,6 +922,10 @@
           "placeholder": "What changed, what replaced it, and which requirements are authoritative?"
         }
       ],
+      "inputs": {
+        "batchSize": "10",
+        "intent": "Infer from repository requirements and current entry points; label uncertainty."
+      },
       "cloud": {
         "compatible": true,
         "reason": "Inventories and audits the checkout's own files and writes tickets and a report into it; every path it touches is repo-relative.",
@@ -865,7 +936,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/file-by-file-audit.yaml"
     },
@@ -900,6 +971,10 @@
           "placeholder": "What changed, what replaced it, and which requirements are authoritative?"
         }
       ],
+      "inputs": {
+        "batchSize": "10",
+        "intent": "Infer from repository requirements and current entry points; label uncertainty."
+      },
       "cloud": {
         "compatible": true,
         "reason": "Audits the checkout's own files and repairs them in place, verifying each fix with the repository's own tests; every path it touches is repo-relative.",
@@ -910,7 +985,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/file-by-file-audit-repair.yaml"
     },
@@ -944,6 +1019,10 @@
           "placeholder": "auto, or newline-separated local paths"
         }
       ],
+      "inputs": {
+        "targets": "all",
+        "configFiles": "auto"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Reviews MCP configuration and installed source on the executing machine.",
@@ -955,7 +1034,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/mcp-security-scanner.yaml"
     },
@@ -996,6 +1075,10 @@
           "type": "text"
         }
       ],
+      "inputs": {
+        "scenario": "all",
+        "organizationName": "Example Company"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Writes local campaign drafts and browser rehearsals using the bundled Node generator.",
@@ -1005,7 +1088,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/phishing-campaign.yaml"
     },
@@ -1033,6 +1116,9 @@
           "placeholder": "src (default)"
         }
       ],
+      "inputs": {
+        "scope": "src"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Runs the repository's local verification commands and reports their results.",
@@ -1043,7 +1129,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/quick-check.yaml"
     },
@@ -1087,6 +1173,11 @@
           ]
         }
       ],
+      "inputs": {
+        "silo": "",
+        "bites": "8",
+        "mode": "fix"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Reads the checkout, edits source, and runs the project's own build and tests. Needs no network and no browser.",
@@ -1097,7 +1188,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/react-cleanup.yaml"
     },
@@ -1125,6 +1216,9 @@
           "placeholder": "src (default)"
         }
       ],
+      "inputs": {
+        "scope": "src"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Static repository security review that does not probe a deployed or private environment.",
@@ -1134,7 +1228,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/security-pass.yaml"
     },
@@ -1167,7 +1261,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/security-validation-lab.yaml"
     },
@@ -1183,8 +1277,8 @@
         "errors"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "da1492da6bbca639e5a91ad783ebbfce30a8dc7878da5571d07181f7a368cd3a",
-      "latestBytes": 6758,
+      "latestVersion": "bace4cd3e985f6ef20f931d8d81cd49d3a36ca352c3b58ad619f97ba3878fa02",
+      "latestBytes": 6881,
       "trigger": "manual",
       "estimate": "~8m",
       "enabled": true,
@@ -1200,6 +1294,10 @@
           "label": "Review scope"
         }
       ],
+      "inputs": {
+        "base": "main",
+        "scope": "changed production code"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Reviews repository code and history without needing deployed services or private data.",
@@ -1209,7 +1307,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/silent-failure-hunt.yaml"
     },
@@ -1243,6 +1341,10 @@
           "placeholder": "3 (default)"
         }
       ],
+      "inputs": {
+        "scope": "src",
+        "batch": "3"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Repository-only refactoring with local test verification; no private services may be part of the suite.",
@@ -1253,7 +1355,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/simplify-pass.yaml"
     },
@@ -1282,6 +1384,9 @@
           "placeholder": "Describe one behavior, or leave blank to let the workflow choose"
         }
       ],
+      "inputs": {
+        "behavior": "Pick one small, well-specified behavior this repo promises (in README, docs, or a TODO) but does not test, and build it test-first. Replace this input with a real behavior description, with example inputs and outputs, for a directed run."
+      },
       "cloud": {
         "compatible": true,
         "reason": "Test-first implementation is self-contained when the project's tests run without VPN or private services.",
@@ -1292,7 +1397,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/tdd-feature.yaml"
     },
@@ -1309,8 +1414,8 @@
         "architecture"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "1f4727bbf6fbd7a627bd3da36a26ffc526e9d7602a62987d84ee60cbf90f5e9c",
-      "latestBytes": 6730,
+      "latestVersion": "4cdc8a736cbd15f946deaad1acecfc40d966934709e9467974dfc1098106d620",
+      "latestBytes": 6853,
       "trigger": "manual",
       "estimate": "~8m",
       "enabled": true,
@@ -1326,6 +1431,10 @@
           "label": "Type scope"
         }
       ],
+      "inputs": {
+        "base": "main",
+        "scope": "types introduced or materially changed by the diff"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Static type and usage analysis needs only the checked-out repository.",
@@ -1335,7 +1444,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/type-design-review.yaml"
     },
@@ -1379,6 +1488,11 @@
           "placeholder": "concurrent users, records per tenant, rows per page, request or latency budgets..."
         }
       ],
+      "inputs": {
+        "scope": "entire UI codebase",
+        "backendPath": "not provided",
+        "scaleContext": "unknown; derive bounds from code and label workload assumptions"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Audits repository evidence without requiring a running service; marks missing backend and runtime evidence explicitly.",
@@ -1388,7 +1502,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-backend-scalability-audit.yaml"
     },
@@ -1425,6 +1539,10 @@
           "placeholder": "discover from repository, or packages/ui and src/shared..."
         }
       ],
+      "inputs": {
+        "scope": "entire UI codebase",
+        "sharedRoots": "discover from repository"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Uses repository evidence; missing runtime or design-system evidence remains explicit.",
@@ -1434,7 +1552,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-centralization-audit.yaml"
     },
@@ -1470,6 +1588,10 @@
           "placeholder": "120 (default) — beyond this the largest files are scored and the rest are estimated from the census"
         }
       ],
+      "inputs": {
+        "scope": "src",
+        "max_files": "120"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Static reading of the checked-out repository only; the census uses git and grep, and the result is a report.",
@@ -1479,7 +1601,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-declarative-split.yaml"
     },
@@ -1534,6 +1656,13 @@
           "placeholder": "120 — larger scopes receive a provisional grade"
         }
       ],
+      "inputs": {
+        "scope": "src",
+        "baseUrl": "auto",
+        "routes": "auto",
+        "mode": "browser",
+        "maxFiles": "120"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Requires the bundled grading helper and a project browser environment; source-only fallback remains provisional.",
@@ -1546,7 +1675,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-layout-audit.yaml"
     },
@@ -1589,6 +1718,11 @@
           "placeholder": "auto-discover, or a URL to inspect"
         }
       ],
+      "inputs": {
+        "question": "What is off about this app?",
+        "focus": "whole product",
+        "surface_url": "auto-discover"
+      },
       "cloud": {
         "compatible": true,
         "reason": "Source-based diagnosis is complete in cloud; authenticated or private runtime observations remain unavailable.",
@@ -1598,7 +1732,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/what-is-off.yaml"
     },
@@ -1646,6 +1780,12 @@
           ]
         }
       ],
+      "inputs": {
+        "select": "sweep",
+        "max": "4",
+        "timeoutMin": "20",
+        "repeat": "no"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Drives this machine's own runner and Claude credentials against a local fixture checkout.",
@@ -1655,7 +1795,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/workflow-audit.yaml"
     },
@@ -1695,6 +1835,11 @@
           "type": "checkbox"
         }
       ],
+      "inputs": {
+        "machine_name": "",
+        "access": "",
+        "use_ssh": "false"
+      },
       "cloud": {
         "compatible": false,
         "reason": "Installation needs this machine's enrollment, private access to another Mac, and permission to install and launch a desktop app there.",
@@ -1706,7 +1851,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1790389261096,
+      "updatedAt": 1790457342264,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/workflow-console-install.yaml"
     }

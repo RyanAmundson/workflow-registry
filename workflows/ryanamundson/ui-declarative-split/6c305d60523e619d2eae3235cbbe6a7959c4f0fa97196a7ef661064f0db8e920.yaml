@@ -1,0 +1,332 @@
+# Declarative-vs-imperative split for a UI codebase.
+#
+# "Declarative" here means the code states what the UI should be for a given
+# state and lets the framework reconcile: JSX/templates, derived values,
+# data-driven rendering, CSS, config objects. "Imperative" means the code says
+# how to get there step by step: DOM handles, manual event wiring, effects that
+# synchronize one piece of state to another, timers choreographing transitions,
+# mutation of shared objects. Neither is a defect. A focus() call inside an
+# effect is the idiomatic escape hatch, not a smell, and the report keeps
+# "necessary imperative" separate from "avoidable imperative" so the number
+# does not pressure anyone into rewriting the escape hatches.
+#
+# The split is a judgment, so this workflow anchors the judgment in counts. The
+# census phase greps every file for a fixed marker list and records line
+# counts, the classifiers score each file against a written rubric and must
+# cite the marker evidence, and the reconciler weights those scores by line
+# count rather than by file count. Weighting by files was the first draft and
+# it was wrong: a 12-line declarative wrapper and a 900-line imperative canvas
+# controller counted the same, and the number said "mostly declarative" about
+# a codebase whose bulk was hand-driven.
+#
+# Report-only: this workflow never edits source files.
+
+name: UI Declarative Split
+description: Measure how much of a UI codebase is declarative versus imperative, weighted by lines, with the imperative share separated into necessary escape hatches and avoidable ones.
+tags: [review, quality, audit, report-only, ui, architecture]
+trigger: manual
+estimate: ~15m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Static reading of the checked-out repository only; the census uses git and grep, and the result is a report.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  scope: src
+  max_files: "120"
+
+params:
+  - key: scope
+    label: UI source root
+    placeholder: src (default) — a directory or glob containing the UI code
+  - key: max_files
+    label: Maximum files to score
+    placeholder: 120 (default) — beyond this the largest files are scored and the rest are estimated from the census
+
+phases:
+  context:
+    agent:
+      name: Census
+      describes: inventory UI files with line and marker counts
+      permissions: full
+      artifacts:
+        - ".workflows/out/ui-declarative-split/census.csv"
+        - ".workflows/out/ui-declarative-split/census.md"
+      prompt: |
+        Build the file inventory the rest of this workflow scores. Do not
+        modify any source files.
+
+        1. Identify the UI framework(s) from package.json, the lockfile, and
+           the file extensions under {{ scope }} (React, Vue, Svelte, Angular,
+           Solid, Lit, plain DOM, Electron renderer, etc.). Record what you
+           found and the evidence.
+
+        2. List the UI source files with `git ls-files -- '{{ scope }}'`
+           restricted to .tsx .jsx .ts .js .vue .svelte .html .css .scss
+           .module.css. Exclude tests (*.test.*, *.spec.*, __tests__/),
+           stories, generated files, type-only declaration files (*.d.ts),
+           and anything under node_modules or a build output directory. If
+           {{ scope }} contains non-UI code too (a server, a CLI), exclude it
+           and say what you excluded and why; the split is meaningless if it
+           counts backend request handlers as imperative UI.
+
+        3. For every remaining file record the line count from `wc -l` and
+           the count of each marker below, using `grep -c` with fixed strings
+           or simple regexes. Markers are evidence for the classifiers, not
+           the verdict; a file with zero markers is not automatically
+           declarative.
+
+           Declarative markers: JSX/template return blocks (`return (` followed
+           by `<`, or `<template>`), `.map(` inside markup, conditional
+           rendering (`&&` or ternaries inside markup), `useMemo`,
+           `useSyncExternalStore`, `computed`, `$derived`, `$:` reactive
+           labels, style/class bindings, CSS rules, configuration or schema
+           object literals that drive rendering.
+
+           Imperative markers: `useEffect`, `useLayoutEffect`, `onMount`,
+           `watch(`, `ngOnInit`, `useRef` / `createRef` / `ref.current`,
+           `document.` and `window.` access, `location.` / `history.` /
+           `localStorage.` / `sessionStorage.` / `navigator.`,
+           `querySelector`, `getElementById`, `closest(`,
+           `addEventListener`, `removeEventListener`, `.innerHTML`,
+           `.style.`, `classList.`, `setAttribute` / `removeAttribute`,
+           `appendChild`, `.focus()` / `.select()` / `.scrollIntoView(`,
+           `setTimeout` / `setInterval` / `requestAnimationFrame`,
+           `MutationObserver` / `ResizeObserver`, `await `, `.push(` /
+           `.splice(` / `.shift(` / `Object.assign(` / `delete ` on state,
+           `.forEach(`, `let ` declarations, `for (` / `while (` loops,
+           class components / `extends HTMLElement`.
+
+           Known blind spots, learned from the first run on this console's
+           own renderer, that the classifiers must read past rather than
+           trust the counts on: a count is lines containing the pattern,
+           not occurrences, and includes prose in comments; event handler
+           bodies and `await`-sequenced bridge calls carry almost no marker,
+           so an all-zero row can be half imperative; an import aliased at
+           the top of the file (`onSnapshot as subscribe`) hides every use
+           below it; `class ... extends Error` matches the class-component
+           pattern but is not one. Record these misses when they recur so
+           the list keeps improving.
+
+        4. Write .workflows/out/ui-declarative-split/census.csv with the Write
+           tool, one row per file: path, lines, then one column per marker
+           above in a fixed order with a header row. Write
+           .workflows/out/ui-declarative-split/census.md alongside it: the
+           framework finding, the exclusion rules applied, the total file and
+           line counts, and the files ranked by line count with the top
+           {{ max_files }} marked as "score" and the remainder marked as
+           "estimate". If every file fits under {{ max_files }}, say so and
+           mark them all "score".
+
+        Both files must be written even when the inventory is empty; in that
+        case say what {{ scope }} resolved to so the operator can fix it.
+
+  plan:
+    agent:
+      name: Rubric
+      describes: pin the scoring rubric to this codebase
+      artifacts: [".workflows/out/ui-declarative-split/rubric.md"]
+      prompt: |
+        Read .workflows/out/ui-declarative-split/census.md and census.csv,
+        then open five to eight files spanning the marker distribution: the
+        two with the most imperative markers, two with the most declarative
+        markers, two near the median, and any file whose extension suggests
+        a template language.
+
+        Write .workflows/out/ui-declarative-split/rubric.md with the Write
+        tool. It must contain:
+
+        - The scoring scale every classifier uses: each file receives a
+          declarative percentage from 0 to 100 in steps of 10, meaning the
+          share of that file's lines that describe UI as a function of
+          state rather than as a sequence of operations.
+        - Codebase-specific anchors for 0, 30, 50, 70, and 100, each naming
+          a real file from the census and a two-sentence justification, so
+          that four independent classifiers score the same file the same
+          way. Generic textbook definitions are not anchors.
+        - The "necessary imperative" list for this framework: the escape
+          hatches the framework itself expects (focus management, measuring
+          layout, third-party library bridges, scroll restoration, media
+          playback control, canvas/WebGL drawing, IPC subscriptions in an
+          Electron renderer). Classifiers tag imperative lines as necessary
+          or avoidable against this list, and the list must name which
+          hatches this codebase actually uses.
+        - The "avoidable imperative" patterns to watch for: an effect that
+          copies one state into another, manual DOM class toggling where a
+          class binding would do, hand-rolled subscriptions where the
+          framework's data layer already provides them, timers standing in
+          for transition events.
+        - The file assignment: split the "score" files from census.md into
+          four groups of roughly equal total line count (not equal file
+          count) and list each group. Name them A, B, C, D.
+
+        Do not modify any source files.
+
+  execute:
+    fanout:
+      - name: Classifier A
+        describes: score file group A
+        artifacts: [".workflows/out/ui-declarative-split/scores-a.csv"]
+        prompt: |
+          Read .workflows/out/ui-declarative-split/rubric.md and census.csv.
+          Score every file in group A. Read each file in full; do not score
+          from the marker counts alone, because they cannot tell a
+          `useEffect` that bridges a chart library (necessary) from one that
+          mirrors a prop into state (avoidable).
+
+          For each file record: path, lines, declarative percentage from the
+          rubric scale, necessary-imperative percentage, avoidable-imperative
+          percentage (the three sum to 100), the anchor file from the rubric
+          it most resembles, and one sentence of evidence citing a line
+          number. Where the marker counts and your reading disagree, say
+          which markers misled and why; that feedback is how the census
+          improves.
+
+          Write .workflows/out/ui-declarative-split/scores-a.csv with the
+          Write tool, header row first, one row per file, the evidence
+          sentence in the last column. Do not modify any source files.
+      - name: Classifier B
+        describes: score file group B
+        artifacts: [".workflows/out/ui-declarative-split/scores-b.csv"]
+        prompt: |
+          Read .workflows/out/ui-declarative-split/rubric.md and census.csv.
+          Score every file in group B. Read each file in full; do not score
+          from the marker counts alone, because they cannot tell a
+          `useEffect` that bridges a chart library (necessary) from one that
+          mirrors a prop into state (avoidable).
+
+          For each file record: path, lines, declarative percentage from the
+          rubric scale, necessary-imperative percentage, avoidable-imperative
+          percentage (the three sum to 100), the anchor file from the rubric
+          it most resembles, and one sentence of evidence citing a line
+          number. Where the marker counts and your reading disagree, say
+          which markers misled and why.
+
+          Write .workflows/out/ui-declarative-split/scores-b.csv with the
+          Write tool, header row first, one row per file, the evidence
+          sentence in the last column. Do not modify any source files.
+      - name: Classifier C
+        describes: score file group C
+        artifacts: [".workflows/out/ui-declarative-split/scores-c.csv"]
+        prompt: |
+          Read .workflows/out/ui-declarative-split/rubric.md and census.csv.
+          Score every file in group C. Read each file in full; do not score
+          from the marker counts alone, because they cannot tell a
+          `useEffect` that bridges a chart library (necessary) from one that
+          mirrors a prop into state (avoidable).
+
+          For each file record: path, lines, declarative percentage from the
+          rubric scale, necessary-imperative percentage, avoidable-imperative
+          percentage (the three sum to 100), the anchor file from the rubric
+          it most resembles, and one sentence of evidence citing a line
+          number. Where the marker counts and your reading disagree, say
+          which markers misled and why.
+
+          Write .workflows/out/ui-declarative-split/scores-c.csv with the
+          Write tool, header row first, one row per file, the evidence
+          sentence in the last column. Do not modify any source files.
+      - name: Classifier D
+        describes: score file group D
+        artifacts: [".workflows/out/ui-declarative-split/scores-d.csv"]
+        prompt: |
+          Read .workflows/out/ui-declarative-split/rubric.md and census.csv.
+          Score every file in group D. Read each file in full; do not score
+          from the marker counts alone, because they cannot tell a
+          `useEffect` that bridges a chart library (necessary) from one that
+          mirrors a prop into state (avoidable).
+
+          For each file record: path, lines, declarative percentage from the
+          rubric scale, necessary-imperative percentage, avoidable-imperative
+          percentage (the three sum to 100), the anchor file from the rubric
+          it most resembles, and one sentence of evidence citing a line
+          number. Where the marker counts and your reading disagree, say
+          which markers misled and why.
+
+          Write .workflows/out/ui-declarative-split/scores-d.csv with the
+          Write tool, header row first, one row per file, the evidence
+          sentence in the last column. Do not modify any source files.
+
+  review:
+    agent:
+      name: Reconciler
+      describes: calibrate the scores and compute the weighted split
+      permissions: full
+      artifacts:
+        - ".workflows/out/ui-declarative-split/scores.csv"
+        - ".workflows/out/ui-declarative-split/split.md"
+      prompt: |
+        Read rubric.md, census.csv, census.md, and the four scores-*.csv
+        files in .workflows/out/ui-declarative-split/.
+
+        Calibrate first. Pick the two files from each group whose score is
+        farthest from what its marker counts would suggest, read them
+        yourself, and re-score them. If a classifier is systematically high
+        or low against the rubric anchors, say so and adjust that group's
+        scores by the observed offset; record every adjustment with the
+        reason. Do not silently average away a disagreement — a classifier
+        that is wrong about a 900-line file matters more than one that is
+        wrong about a 20-line file.
+
+        For files the census marked "estimate", assign the score of the
+        scored file whose marker profile is nearest (same extension, similar
+        imperative-marker density), and flag them as estimated in the
+        output.
+
+        Then compute the split, weighting every file by its line count:
+
+        - declarative lines / total lines
+        - necessary-imperative lines / total lines
+        - avoidable-imperative lines / total lines
+
+        Compute these with a shell one-liner or a short script over the CSV
+        rather than by summing in your head, and paste the command and its
+        output into split.md. Also compute the unweighted file-count split
+        and show both side by side; the gap between them is itself a finding
+        about where the imperative code concentrates.
+
+        Write .workflows/out/ui-declarative-split/scores.csv (every file,
+        calibrated, with an `estimated` column) and
+        .workflows/out/ui-declarative-split/split.md (the calibration log,
+        the two splits, the command output, and the ten files contributing
+        the most avoidable-imperative lines with their evidence sentences)
+        with the Write tool. Both files must be written. Do not modify any
+        source files.
+
+  report:
+    agent:
+      name: Reporter
+      describes: the split and what drives it
+      artifacts: [".workflows/out/ui-declarative-split/report.md"]
+      prompt: |
+        Read .workflows/out/ui-declarative-split/split.md, scores.csv, and
+        rubric.md. Write .workflows/out/ui-declarative-split/report.md with
+        the Write tool.
+
+        Lead with the number: the line-weighted split as three percentages
+        (declarative, necessary imperative, avoidable imperative) and a
+        one-sentence characterization of the codebase. Then:
+
+        - The framework and the scope actually measured, with the exclusions,
+          so a reader knows what the percentages are percentages of.
+        - The file-count split beside the line-weighted split and what the
+          gap says about where imperative code concentrates.
+        - Where the imperative code lives: the directories or components
+          that account for most of it, with line counts.
+        - The ten largest avoidable-imperative contributors, each with the
+          file, its share of total lines, and the one-line evidence from the
+          classifiers. State the declarative alternative in a sentence where
+          one is obvious; where it is not, say so rather than inventing one.
+        - The necessary-imperative escape hatches in use, listed once, so
+          nobody reads them as debt.
+        - How confident the number is: how many files were scored versus
+          estimated, the calibration adjustments made, and which marker
+          counts misled the classifiers.
+
+        Use the numbers from split.md exactly; do not recompute or round
+        them differently. If the census was empty, the report says so and
+        names the scope that resolved to nothing. Do not modify any source
+        files.

@@ -1,0 +1,55 @@
+name: Security Validation Lab
+description: Execute both lab policy modes across six AI scenarios, then generate three phishing rehearsals. Produces visual reports from actual local execution; model decisions are scripted.
+tags: [security, certiv, ai, simulation, training, report-only]
+trigger: manual
+estimate: ~2m
+model: claude-sonnet-5
+permissions: full
+cloud:
+  compatible: false
+  reason: Executes the bundled local fixture and receipt-service lab.
+  requires: [host-files, shell]
+  result: report
+inputs: {}
+phases:
+  context:
+    agent:
+      name: Lab Setup
+      describes: prepare a fresh run
+      artifacts: [".workflows/out/security-validation-lab/state.json"]
+      prompt: |
+        Create .workflows/out/security-validation-lab and immediately replace
+        state.json with status pending. Resolve WC_BUNDLED_SCRIPTS and read
+        security-scenarios/SUITE.md. Generate a UUID for this run and write state.json
+        with status ready and outputDir as an absolute, new child under
+        .workflows/out/security-validation-lab/runs. Do not create that child.
+        If setup fails, write status blocked and the reason. Do not inspect
+        endpoints, credentials, employee data or infrastructure inventory.
+  execute:
+    agent:
+      name: Local Validation
+      describes: execute observe, enforce and training workflows
+      artifacts: [".workflows/out/security-validation-lab/execution.json"]
+      prompt: |
+        Read this run's state.json. If not ready, write execution.json with
+        status blocked and reason. Otherwise invoke Node on
+        ${WC_BUNDLED_SCRIPTS}/security-lab.mjs with --output-dir and the generated
+        outputDir as one properly quoted argument. Use only that bundled script.
+        Capture stdout, stderr and exit code in execution.json. Do not retry an
+        existing directory or change artifacts. This is a local scripted demo;
+        do not deliver email, connect to Proxmox, deploy agents or disable defenses.
+  report:
+    agent:
+      name: Evidence Review
+      describes: show visual outcomes and coverage gaps
+      artifacts: [".workflows/out/security-validation-lab/summary.md"]
+      prompt: |
+        Read state.json and execution.json for this run. If blocked or failed,
+        report that result and preserve partial evidence; never use an old run.
+        Otherwise inspect lab.json in outputDir and link observe/index.html,
+        enforce/index.html, phishing/index.html and lab.json in summary.md.
+        State SCRIPTED DEMO: model decisions are scripted; file reads, HTTP
+        receipts and the lab policy gate execute. Lab-policy-blocked is not
+        Certiv enforcement. No live agent, LXC or CVE reproduction is validated.
+        Do not claim a completed production exploit suite. Include the observed
+        trial counts and cleanup results, never a percentage-secure score.

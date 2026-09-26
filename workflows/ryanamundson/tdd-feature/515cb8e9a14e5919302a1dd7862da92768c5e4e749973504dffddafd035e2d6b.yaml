@@ -1,0 +1,135 @@
+# Test-driven development — write failing tests first, then code until green.
+#
+# Source: "Best practices for Claude Code" names TDD the workflow for any change
+# that is verifiable with tests, and Anthropic's own Security Engineering team
+# reports shifting to it ("How Anthropic teams use Claude Code",
+# claude.com/blog/how-anthropic-teams-use-claude-code). The two rules everyone
+# repeats: the implementer must not touch the tests, and a separate check must
+# confirm the tests were not weakened or overfit to.
+#
+# Console adaptation: RED lives in the plan phase — the failing tests are the
+# plan. A fresh-context agent in review hunts for overfitting, because the agent
+# that wrote the code cannot be the one grading it.
+
+name: TDD Feature
+description: Specify a behavior with failing tests, implement it until green, independently check for overfitting, and report the evidence.
+tags: [feature, tests, repairs, behavior]
+trigger: manual
+estimate: ~15m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Test-first implementation is self-contained when the project's tests run without VPN or private services.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  behavior: >-
+    Pick one small, well-specified behavior this repo promises (in README, docs,
+    or a TODO) but does not test, and build it test-first. Replace this input
+    with a real behavior description, with example inputs and outputs, for a
+    directed run.
+
+params:
+  - key: behavior
+    label: Behavior to build
+    placeholder: Describe one behavior, or leave blank to let the workflow choose
+
+phases:
+  context:
+    agent:
+      name: Test Scout
+      describes: testing conventions
+      artifacts: [".workflows/out/tdd-feature/context.md"]
+      prompt: |
+        Research how this repository tests, without changing any files.
+
+        Target behavior: {{ behavior }}
+
+        Identify the test framework, the exact command that runs the tests, the
+        naming and location conventions for test files, and one existing test
+        file that new tests should imitate. Note where the target behavior's
+        code lives or should live.
+
+        Write .workflows/out/tdd-feature/context.md with the Write tool (it
+        creates the directory) covering all of the above. You must write this
+        file.
+
+  plan:
+    agent:
+      name: Red
+      describes: failing tests are the spec
+      permissions: full
+      artifacts: [".workflows/out/tdd-feature/red.md"]
+      prompt: |
+        Read .workflows/out/tdd-feature/context.md. Write tests that pin down
+        this behavior, following the repo's own test conventions:
+
+        {{ behavior }}
+
+        Cover the main case and the edge cases the behavior implies. Do not
+        write any implementation code, and do not write mock implementations.
+        Run the test command and confirm the new tests fail for the right
+        reason: the behavior is missing, not a typo or an import error.
+
+        Write .workflows/out/tdd-feature/red.md with the Write tool: the test
+        files you added, each test's name and intent, and the real failure
+        output. You must write this file.
+
+  execute:
+    agent:
+      name: Green
+      describes: implement until tests pass
+      permissions: full
+      artifacts: [".workflows/out/tdd-feature/green.md"]
+      prompt: |
+        Read .workflows/out/tdd-feature/red.md. Implement production code until
+        the tests it names pass. You must not edit, delete, skip, or weaken any
+        test file — if a test looks wrong, say so in your notes and leave it
+        red. Do not hard-code expected values to satisfy assertions.
+
+        Run the full test suite, not only the new tests, and fix regressions
+        you caused. Iterate until green or until you are genuinely blocked.
+
+        Write .workflows/out/tdd-feature/green.md with the Write tool: the
+        implementation files changed, the final test run's real output, and
+        anything still failing with the reason. You must write this file.
+
+  review:
+    agent:
+      name: Overfit Check
+      describes: were the tests cheated?
+      permissions: full
+      artifacts: [".workflows/out/tdd-feature/review.md"]
+      prompt: |
+        You are a fresh reviewer; you wrote neither the tests nor the code.
+        Read .workflows/out/tdd-feature/red.md and green.md, then run
+        `git diff` and inspect the changes.
+
+        Check three things: no test file was modified after red.md described it
+        (compare the diff against red.md's claims); the implementation is
+        general rather than hard-coded to the test inputs; the tests genuinely
+        pin the behavior described. Re-run the suite yourself and confirm green.
+
+        Write .workflows/out/tdd-feature/review.md with the Write tool: first
+        line `VERDICT: pass` or `VERDICT: fail`, then each problem with
+        file:line. You must write this file.
+
+  report:
+    agent:
+      name: Committer
+      describes: commit and summary
+      permissions: full
+      artifacts: [".workflows/out/tdd-feature/report.md"]
+      prompt: |
+        Read .workflows/out/tdd-feature/review.md. If its verdict is pass,
+        commit the tests and implementation together with a message that names
+        the behavior now covered. Never push; the operator decides what leaves
+        this machine. If the verdict is fail, commit nothing.
+
+        Write .workflows/out/tdd-feature/report.md with the Write tool: the
+        behavior built, test count added, final suite result, the commit hash
+        if one was made, and anything left undone. You must write this file in
+        both cases.

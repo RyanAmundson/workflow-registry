@@ -1,0 +1,257 @@
+# Product diagnosis for the uncomfortable case where the app mostly works but
+# still does not feel like the product its repository says it is. This is
+# deliberately not a bug hunt: the report must connect intent, experience, and
+# implementation before recommending a change.
+
+name: What Is Off?
+description: Diagnose why a working product still misses its intended experience, connect evidence to root causes, and report a prioritized recovery plan.
+tags: [audit, plan, report-only, ui, behavior]
+trigger: manual
+estimate: ~20m
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: true
+  reason: Source-based diagnosis is complete in cloud; authenticated or private runtime observations remain unavailable.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  question: What is off about this app?
+  focus: whole product
+  surface_url: auto-discover
+
+params:
+  - key: question
+    label: Diagnostic question
+    type: text
+    placeholder: What is off about this app? (default)
+  - key: focus
+    label: Focus
+    type: text
+    placeholder: whole product, onboarding, the core loop…
+  - key: surface_url
+    label: App URL
+    type: text
+    placeholder: auto-discover, or a URL to inspect
+
+phases:
+  context:
+    agent:
+      name: Ground Truth
+      describes: promise, audience, and actual core loop
+      permissions: full
+      artifacts: [".workflows/out/what-is-off/ground-truth.md"]
+      prompt: |
+        Answer the deceptively simple question "{{ question }}" for this
+        repository, focused on {{ focus }}. First establish ground truth; do
+        not diagnose yet.
+
+        Read the repository instructions, product and design docs, manifest,
+        entry points, routes or commands, data boundaries, tests, and recent
+        history. Trace the shortest path from a new operator arriving to the
+        product delivering its supposed payoff. Inspect the running product at
+        {{ surface_url }} when that is a real URL. When it says auto-discover,
+        use project docs and scripts to find a safe local or deployed surface;
+        if you start anything, stop only what you started. If runtime inspection
+        is not possible, say so plainly and do not invent visual observations.
+        Restrict visual inspection to the target app's own browser tab or window.
+        Never capture the whole desktop, enumerate unrelated windows, read browser
+        history or session storage, or inspect another app to work around missing
+        browser access.
+
+        Write .workflows/out/what-is-off/ground-truth.md with:
+        - the intended user and job in one sentence
+        - the product promise, quoted or closely paraphrased with citations
+        - the actual core loop, step by step
+        - the first five minutes for a new operator
+        - the architecture and operating assumptions that shape that loop
+        - an evidence ledger tagged RUNTIME, SOURCE, DOCS, HISTORY, or INFERENCE
+        - unresolved questions that later agents must not quietly assume away
+
+        Cite file:line for repository evidence and name the exact route, command,
+        or interaction for runtime evidence. Change no application, config, or
+        dependency files. You must write the ground-truth file.
+
+  plan:
+    agent:
+      name: Tension Framer
+      describes: testable promise-versus-reality hypotheses
+      artifacts: [".workflows/out/what-is-off/hypotheses.md"]
+      prompt: |
+        Read .workflows/out/what-is-off/ground-truth.md. Frame at most six
+        hypotheses for why this product feels off. A useful hypothesis is a
+        tension between the promise and the experience, not a list of UI nits.
+
+        For each hypothesis write:
+        - PROMISE: what the app seems to be trying to make true
+        - REALITY: what the operator currently has to understand or do
+        - COST: why that gap matters to adoption, trust, or repeated use
+        - TEST: evidence that would confirm it
+        - FALSIFIER: evidence that would prove the hypothesis wrong
+
+        Include at least one hypothesis about product scope, one about the
+        operator's core loop, and one about whether the implementation exposes
+        its own machinery instead of the user's desired outcome. Preserve the
+        unresolved questions from ground-truth.md. Do not change source files.
+        Write .workflows/out/what-is-off/hypotheses.md even if the evidence says
+        the app is coherent and the initial feeling is wrong.
+
+  execute:
+    fanout:
+      - name: Operator Journey
+        describes: first use through realized value
+        permissions: full
+        artifacts: [".workflows/out/what-is-off/operator-journey.md"]
+        prompt: |
+          Read .workflows/out/what-is-off/ground-truth.md and
+          .workflows/out/what-is-off/hypotheses.md. Walk the product as its intended
+          operator from arrival through first realized value, focused on {{ focus }}.
+          Prefer direct runtime evidence at {{ surface_url }} or a safely discovered
+          surface. When runtime is unavailable, trace rendered states and actions
+          from source and label those observations SOURCE, never RUNTIME.
+          Restrict visual inspection to the target app's own browser tab or window.
+          Never capture the whole desktop, enumerate unrelated windows, read browser
+          history or session storage, or inspect another app to work around missing
+          browser access.
+
+          Look for prerequisites revealed too late, nouns that require repo history
+          to decode, actions whose payoff is distant or invisible, empty/error/demo
+          states that teach the wrong mental model, and moments where the app asks
+          the operator to manage implementation machinery. Also record what is
+          unusually clear or satisfying; an all-negative walkthrough is not a
+          trustworthy one.
+
+          Write .workflows/out/what-is-off/operator-journey.md as a chronological
+          journey with evidence, friction, consequence, and the smallest design
+          move that would test each diagnosis. Change no application files.
+
+      - name: Product Coherence
+        describes: scope, hierarchy, and value proposition
+        artifacts: [".workflows/out/what-is-off/product-coherence.md"]
+        prompt: |
+          Read .workflows/out/what-is-off/ground-truth.md and
+          .workflows/out/what-is-off/hypotheses.md. Treat the repository as a product
+          strategy artifact. Check whether its landing surface, navigation, naming,
+          feature set, defaults, and progress measures all reinforce one job, or
+          whether several different products are sharing one shell.
+
+          Map every major surface to the user question it answers and the decision
+          it enables. Flag surfaces that report activity without enabling a decision,
+          quality signals with unclear authority, duplicated concepts, and features
+          that are impressive but pull attention away from the core payoff. Distinguish
+          missing product focus from ordinary unfinished polish.
+
+          Write .workflows/out/what-is-off/product-coherence.md with a one-sentence
+          current positioning, a one-sentence implied positioning, supporting and
+          contradicting evidence, and the three highest-leverage scope or hierarchy
+          changes. Cite file:line or exact runtime interactions. Change no source.
+
+      - name: System Reality
+        describes: architecture behind the felt mismatch
+        permissions: full
+        artifacts: [".workflows/out/what-is-off/system-reality.md"]
+        prompt: |
+          Read .workflows/out/what-is-off/ground-truth.md and
+          .workflows/out/what-is-off/hypotheses.md. Trace the central promise end to
+          end through UI, command transport, runner, workflow discovery, execution,
+          persistence, and reporting. Identify where the architecture makes the
+          experience feel indirect, stale, fragile, or more capable than it really is.
+
+          Pay special attention to split-brain state, demo or fallback behavior,
+          hidden local-machine requirements, configuration outside the repo, multiple
+          workflow formats, permissions, failure recovery, and anything the UI cannot
+          actually observe despite presenting a confident status. Do not call a tradeoff
+          a defect when the docs name it as intentional; explain the user-visible price.
+
+          Write .workflows/out/what-is-off/system-reality.md with an end-to-end trace,
+          the important architectural constraints, and root causes that can explain
+          more than one surface symptom. Run non-destructive checks when useful.
+          Cite file:line and command evidence. Change no application files.
+
+      - name: Countercase
+        describes: strongest defense of the current product
+        artifacts: [".workflows/out/what-is-off/countercase.md"]
+        prompt: |
+          Read .workflows/out/what-is-off/ground-truth.md and
+          .workflows/out/what-is-off/hypotheses.md. Be the strongest fair-minded defender
+          of the current app. Look for evidence that apparent awkwardness is a deliberate
+          constraint, an expert-tool convention, a personal-tool optimization, or simply
+          a maturity issue rather than a broken product premise.
+
+          Try to falsify every hypothesis. Name what the app already does especially
+          well, which users might prefer its current shape, and which proposed
+          simplifications would destroy real power. Then identify the hypotheses that
+          survive the defense and why.
+
+          Write .workflows/out/what-is-off/countercase.md with ACCEPT, REJECT, or
+          UNCERTAIN for every hypothesis and concrete evidence for the verdict. Change
+          no source files. You must write the file even if every hypothesis survives.
+
+  review:
+    agent:
+      name: Causal Editor
+      describes: verified symptoms, causes, and leverage
+      permissions: full
+      artifacts: [".workflows/out/what-is-off/causal-review.md"]
+      prompt: |
+        You are a skeptical product and systems editor. Read every file in
+        .workflows/out/what-is-off/. Verify cited repository evidence against the
+        current files and reject runtime claims that do not name an observed route,
+        action, or state. Merge duplicates and separate:
+
+        1. symptoms — what feels confusing or inert
+        2. proximate causes — the design or behavior producing the symptom
+        3. root causes — product or architectural choices explaining several symptoms
+        4. constraints — facts a fix must respect
+
+        Rank only findings that survive the countercase. For each, state confidence,
+        evidence, user consequence, and leverage. Penalize recommendations that amount
+        to "redesign it" or "add onboarding" without naming the exact mental-model
+        change. End with two sentences: what the app is currently optimized for, and
+        what it would need to optimize for to fulfill its stated promise.
+
+        Write .workflows/out/what-is-off/causal-review.md. Change no application files.
+
+  report:
+    agent:
+      name: Answerer
+      describes: direct answer to what is off
+      artifacts: [".reports/what-is-off.md"]
+      prompt: |
+        Read .workflows/out/what-is-off/causal-review.md first, then use the other
+        artifacts only as supporting evidence. The causal review is authoritative:
+        include only its ranked findings and minor confirmed findings. Never revive
+        a hypothesis listed under `Did not survive`, even if an earlier artifact
+        phrases it more vividly. If two artifacts disagree, the causal review wins.
+
+        Answer "{{ question }}" directly for {{ focus }}. Write
+        .reports/what-is-off.md with these sections:
+
+        # What Is Off About This App?
+        ## The short answer
+        A candid paragraph that names the central mismatch without throat-clearing.
+        ## What the project is meant to do
+        The intended user, job, core loop, and payoff.
+        ## Why it does not feel like that yet
+        The three to five ranked root causes, each connected to observed symptoms and
+        repository or runtime evidence.
+        ## What is already working
+        Strengths worth preserving and constraints a change must respect.
+        ## The product decision hiding underneath
+        The choice of audience, core object, or scope the current app is avoiding.
+        ## A sharper product shape
+        Describe the smallest coherent version of this product: landing promise,
+        primary action, core loop, proof of value, and what moves to secondary status.
+        ## Three experiments, in order
+        Reversible experiments with an expected signal, not a feature backlog. The
+        first must be testable without a broad rewrite.
+        ## Evidence and limits
+        Separate runtime observations from source/docs/history evidence and list what
+        was not possible to verify.
+
+        Prefer a specific uncomfortable conclusion over a broad audit summary. Do not
+        invent certainty, do not propose cosmetic polish as the answer to a product
+        mismatch, and do not change or commit application files. You must write the
+        report even if the conclusion is that the app is basically coherent.

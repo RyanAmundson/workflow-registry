@@ -1,0 +1,220 @@
+# Judges the workflow library itself. The letter grade reads a definition and a
+# run history; it cannot say whether a workflow that has never been run here will
+# get through, and it excludes the timeouts that are most of what "it keeps
+# failing on me" means. This runs each global workflow against a five-file
+# fixture repo through the real runner, and keeps a pass/attempt tally across
+# audits. The probe produces every number. The agents only read prompts and
+# judge outputs; an agent that asserts a result the probe did not record has
+# produced an opinion, not a measurement.
+name: Workflow Audit
+description: Run the global workflow library against a small fixture repo through the real runner, record which workflows finish and what they cost, judge their output, and keep a consistency tally across audits.
+tags: [audit, console, report-only, validation]
+trigger: manual
+estimate: ~5m plus ~10m per probed workflow
+model: claude-sonnet-5
+permissions: full
+
+cloud:
+  compatible: false
+  reason: Drives this machine's own runner and Claude credentials against a local fixture checkout.
+  requires: [host-files, shell]
+  result: report
+
+inputs:
+  select: sweep
+  max: "4"
+  timeoutMin: "20"
+  repeat: "no"
+
+params:
+  - key: select
+    label: Workflows to probe
+    placeholder: sweep (default), or ids separated by commas, for example quick-check,dep-audit
+  - key: max
+    label: Maximum workflows to probe this run (sweep only)
+    placeholder: "4"
+  - key: timeoutMin
+    label: Minutes before a probe counts as timed out
+    placeholder: "20"
+  - key: repeat
+    label: Probe workflows that already have an attempt
+    type: select
+    options: ["no", "yes"]
+
+phases:
+  context:
+    agent:
+      name: Surveyor
+      describes: list the library and prior attempts
+      artifacts: [".workflows/out/workflow-audit/targets.json", ".workflows/out/workflow-audit/run.json"]
+      prompt: |
+        Prepare a workflow audit. State directory D is .workflows/out/workflow-audit/
+        under the current repository root; create it. Do not run any workflow in
+        this phase.
+
+        The probe lives in the Workflow Console checkout that started this run.
+        Resolve it as CONSOLE="$(cd "${WC_BUNDLED_SCRIPTS:?}/../.." && pwd)" and
+        confirm "$CONSOLE/package.json" has "name": "workflow-console". If
+        WC_BUNDLED_SCRIPTS is unset or the check fails, write D/run.json with
+        status blocked and the reason, and stop; later phases do no work.
+
+        Run, from $CONSOLE: npm run runner -- probe --list
+        Save the JSON array it prints (only the JSON, not npm's preamble) to
+        D/targets.json. Each entry has id, name, kind, path, risks, and an
+        optional skipReason.
+
+        Read D/results.json if it exists. It is the probe's own ledger with
+        attempts keyed by workflow id; never edit it. For each target, count its
+        attempts and successes.
+
+        Write D/run.json with: status ready, startedAt (epoch ms, now), console
+        path, the operator inputs exactly as given — select "{{ select }}",
+        max "{{ max }}", timeoutMin "{{ timeoutMin }}", repeat "{{ repeat }}" —
+        and a targets summary: total, skipped (with reasons), attempted before,
+        never attempted. Do not decide which workflows the probe will run; the
+        probe applies the inputs itself.
+
+  plan:
+    agent:
+      name: Static Reviewer
+      describes: read every definition for completion risks
+      artifacts: [".workflows/out/workflow-audit/static.json"]
+      prompt: |
+        Read D=.workflows/out/workflow-audit/ run.json and targets.json. If the
+        run is blocked, write D/static.json as an empty array and stop.
+
+        For every target, read the definition file at its path in full. YAML
+        definitions are driven phase by phase by the console: each agent gets
+        its prompt with double-brace placeholders filled from inputs (the parser
+        refuses one that nothing defines), runs headless with no one to answer a
+        question, is stopped after idleTimeoutSeconds without output (default
+        1200) or timeoutSeconds in total (default 10800), retries once on a
+        provider error, and its phase fails when a declared artifact is missing
+        afterwards. Script definitions (.js, .mjs) are handed whole to Claude
+        Code as /workflow <name> with a 14400 second ceiling and no idle check.
+
+        The mechanical risks are already in each target's risks list. Add up to
+        three more per workflow that only reading can find, for example: a phase
+        that reads a file no earlier phase writes; an artifact declared on one
+        agent but written by another; a prompt that asks for a browser, a dev
+        server, network, or a credential the fixture repo cannot provide; a
+        prompt that asks the agent to ask the operator something; a script
+        whose args the run dialog cannot supply; an instruction that contradicts
+        another in the same workflow. Quote the line for each. Do not repeat a
+        mechanical risk, and write an empty list when you found none.
+
+        Write D/static.json: an array of { id, reviewed: true, risks: [ { risk,
+        evidence } ] }, one entry per target.
+
+  execute:
+    agent:
+      name: Prober
+      describes: run the selected workflows against a fresh fixture each
+      timeoutSeconds: 21600
+      artifacts: [".workflows/out/workflow-audit/results.json"]
+      prompt: |
+        Read D=.workflows/out/workflow-audit/run.json. If the run is blocked,
+        write D/results.json as {"version":1,"attempts":{}} only when it does
+        not already exist, and stop.
+
+        Run the probe exactly once and let it do all the work. It builds the
+        fixture repo, runs each workflow through the real runner one at a time,
+        aborts any that pass the timeout, and appends one attempt per workflow
+        to D/results.json after each one. Never run a workflow yourself, never
+        edit results.json, and never invent an attempt.
+
+        Use the console path from run.json as CONSOLE, and the absolute path of
+        D as OUT. Then run, from CONSOLE, with the environment variable
+        WC_CONFIG_DIR set to "$OUT/runner-config" (a scratch config the probe
+        refuses to run without):
+
+          npm run runner -- probe --out "$OUT/results.json" --max {{ max }} --timeout-min {{ timeoutMin }}
+
+        When the select input is anything other than "sweep", add
+        --select <the input verbatim> and drop --max. When the repeat input is
+        "yes", add --repeat. Let it run to completion however long it takes; do
+        not stop it early. Print its full output. If it exits non-zero, write
+        D/probe-error.txt with the output and report failure.
+
+        Finish by stating how many workflows it probed and how many succeeded,
+        read from results.json, not from memory.
+
+  review:
+    agent:
+      name: Judge
+      describes: read each probed output against what the fixture planted
+      artifacts: [".workflows/out/workflow-audit/judgments.json"]
+      prompt: |
+        Read D=.workflows/out/workflow-audit/ run.json and results.json. Judge
+        only attempts whose "at" is at or after run.json startedAt; earlier
+        attempts were judged by earlier audits. If there are none, write
+        D/judgments.json as an empty array and stop.
+
+        The fixture is a five-file TypeScript library called tiny-stats. It
+        plants these, and nothing else:
+        1. README says mean([]) throws RangeError; src/stats.ts returns 0.
+        2. src/amount.ts parseAmount catches its own SyntaxError and returns 0;
+           README promises the throw. This file is on the feature branch, so
+           it is the whole diff against main.
+        3. src/stats.ts exports mode, which nothing imports and nothing tests.
+        4. src/stats.test.ts has a hollow test: expect(mean([])).toBeDefined().
+        5. README claims every exported function has a test.
+
+        For each attempt, open its artifactDir under D (paths are relative to
+        results.json) and read everything in it, including repo-changes.diff
+        when present. Then record:
+        - quality: good when the output is about this fixture and names at
+          least one planted issue correctly with the right file; weak when it
+          is about the fixture but finds nothing planted or is mostly generic;
+          wrong when it names files, functions, or findings that do not exist
+          in the fixture; none when there is no output to read.
+        - found: which planted issue numbers it identified.
+        - fabricated: any file, function, or claim that is not in the fixture.
+        - failureKind for non-success attempts, from the error text: timeout,
+          artifact-missing, permission, agent-error, refused, or unknown.
+        - evidence: one quoted line from the output per claim.
+        A workflow that edits code is judged on repo-changes.diff: good when
+        the change matches what it was asked to do and the tests still make
+        sense, wrong when it deleted or weakened a test.
+
+        Write D/judgments.json: an array of { id, at, status, quality, found,
+        fabricated, failureKind, evidence }. Never repair a workflow here.
+
+  report:
+    agent:
+      name: Reporter
+      describes: one table for the whole library, then what to fix
+      artifacts: [".reports/workflow-audit.md", ".workflows/out/workflow-audit/summary.json"]
+      prompt: |
+        Read D=.workflows/out/workflow-audit/ run.json, targets.json,
+        static.json, results.json, and judgments.json. If run.json is blocked
+        or missing, write .reports/workflow-audit.md saying INCOMPLETE with the
+        reason and stop.
+
+        Compute per workflow, from results.json and nothing else: attempts,
+        successes, consistency = successes/attempts as a percentage (N/A with no
+        attempt), the latest attempt's status, error, duration, and tokens, and
+        the quality from this run's judgment when there is one. Do the counting
+        with a script (node or jq), not by hand, and save the script in D.
+
+        Write .reports/workflow-audit.md:
+        - A one-line verdict: how many of the library's workflows have ever
+          finished on the fixture, how many have never been probed.
+        - One table with every target, sorted worst first: name, kind,
+          consistency (for example 2/3 · 67%), latest result, quality, tokens,
+          duration, top risk. Skipped targets show their skip reason in place
+          of a result. Never drop a row.
+        - "Fix first": every workflow whose latest attempt failed or whose
+          quality is wrong, with the failure kind, the error text, and one
+          concrete change to the definition, citing the static risk or the
+          judge's evidence. A timeout names the agent that ran out of time when
+          the phases show it.
+        - "Not yet probed": the ids a sweep still has to reach, and the exact
+          inputs to run them.
+        - Cost: wall time and tokens this run, read from results.json. Show
+          output and input tokens from each attempt's usage separately from
+          totalTokens, which counts cache reads and runs to millions on a
+          five-file repo.
+        Consistency here is the probe's own tally. Real-project consistency
+        is the finish rate the console shows under each workflow's grade.
+        Write D/summary.json with the same per-workflow numbers.

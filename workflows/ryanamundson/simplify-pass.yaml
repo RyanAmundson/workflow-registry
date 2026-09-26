@@ -1,0 +1,127 @@
+# Simplify pass — incremental refactoring that preserves behavior.
+#
+# Source: refactoring is called "one of the most useful Claude workflows in a
+# large codebase but also one of the riskiest" across the 2026 write-ups
+# (datastudios.org on large codebases, the code-simplifier agent pattern, the
+# /code-audit skill). The community's safety rules are encoded here: only
+# touch code that tests already cover, keep every step behavior-preserving,
+# separate mechanical changes from design changes, and verify with the suite
+# after each item — not once at the end.
+
+name: Simplify Pass
+description: Find avoidable complexity, make behavior-preserving simplifications, verify the result, and report what changed.
+tags: [cleanup, quality, repairs, architecture]
+trigger: manual
+estimate: ~15m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Repository-only refactoring with local test verification; no private services may be part of the suite.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  scope: src
+  batch: "3"
+
+params:
+  - key: scope
+    label: Refactor scope
+    placeholder: src (default)
+  - key: batch
+    label: Maximum changes
+    placeholder: 3 (default)
+
+phases:
+  context:
+    agent:
+      name: Hotspot Finder
+      describes: duplication and complexity map
+      artifacts: [".workflows/out/simplify-pass/hotspots.md"]
+      prompt: |
+        Map simplification hotspots under {{ scope }}: logic duplicated in
+        more than one place, helpers reimplemented beside an existing one,
+        deeply nested conditionals, dead parameters, and abstraction with a
+        single user. For each hotspot, check whether tests cover it — an
+        uncovered hotspot cannot be safely refactored and must be marked
+        UNCOVERED. Do not change any files.
+
+        Write .workflows/out/simplify-pass/hotspots.md with the Write tool (it
+        creates the directory): each hotspot with file:line, the smell, the
+        covering tests or UNCOVERED, and the payoff of fixing it. You must
+        write this file.
+
+  plan:
+    agent:
+      name: Selector
+      describes: pick safe, mechanical wins
+      artifacts: [".workflows/out/simplify-pass/simplify-plan.md"]
+      prompt: |
+        Read .workflows/out/simplify-pass/hotspots.md. Pick up to {{ batch }}
+        hotspots that have test coverage — never an UNCOVERED one. Prefer
+        mechanical simplifications (deduplicate, inline, flatten, delete) over
+        design changes; a redesign is out of scope for an unattended run. For
+        each pick, state the exact transformation and the invariant: observable
+        behavior and public API stay identical, with every caller updated if a
+        signature must move. Do not change any files.
+
+        Write .workflows/out/simplify-pass/simplify-plan.md with the Write
+        tool, one section per pick. You must write this file even if nothing
+        qualifies — then say why.
+
+  execute:
+    agent:
+      name: Simplifier
+      describes: one item at a time, suite green between
+      permissions: full
+      artifacts: [".workflows/out/simplify-pass/changes.md"]
+      prompt: |
+        Work through .workflows/out/simplify-pass/simplify-plan.md one item at
+        a time. Run the test suite after each item; if it breaks and the fix
+        is not obvious in a minute, revert that item and move on. Do not edit
+        tests except to update an import path a move made stale — weakening an
+        assertion to get green is failure, not progress. Stay inside the plan.
+
+        Write .workflows/out/simplify-pass/changes.md with the Write tool: per
+        item, the before/after shape in two lines, lines added and removed,
+        the suite result, and any item reverted with the reason. You must
+        write this file.
+
+  review:
+    agent:
+      name: Behavior Guard
+      describes: identical behavior, less code
+      permissions: full
+      artifacts: [".workflows/out/simplify-pass/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/simplify-pass/
+        simplify-plan.md and changes.md, run `git diff`, and check every hunk
+        for a behavior change hiding in the simplification: a reordered
+        condition that short-circuits differently, a dropped error branch, a
+        default that moved. Confirm no test assertion changed, and re-run the
+        suite yourself. The net diff should remove more lines than it adds —
+        if it does not, question whether it simplified anything.
+
+        Write .workflows/out/simplify-pass/review.md with the Write tool:
+        first line `VERDICT: pass` or `VERDICT: fail`, then per item confirmed
+        or challenged, with file:line. You must write this file.
+
+  report:
+    agent:
+      name: Committer
+      describes: commit the simplification
+      permissions: full
+      artifacts: [".workflows/out/simplify-pass/report.md"]
+      prompt: |
+        Read .workflows/out/simplify-pass/review.md and changes.md. On
+        `VERDICT: pass` with at least one applied item, commit with a message
+        naming what got simpler and the net line change. Never push; the
+        operator decides what leaves this machine. On `VERDICT: fail` or an
+        empty pass, commit nothing.
+
+        Write .workflows/out/simplify-pass/report.md with the Write tool:
+        items applied, items reverted, net lines removed, UNCOVERED hotspots
+        left for after coverage improves (they are Coverage Gaps candidates),
+        and the commit hash if any. You must write this file in every case.

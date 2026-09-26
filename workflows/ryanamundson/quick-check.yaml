@@ -1,0 +1,42 @@
+name: Quick Check
+description: Inspect a focused area for correctness and clarity, then write a concise findings report without changing product code.
+tags: [audit, quality, report-only]
+trigger: manual
+estimate: ~1m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Runs the repository's local verification commands and reports their results.
+  requires: [repository, shell, tests]
+  result: report
+
+inputs:
+  scope: src
+
+params:
+  - key: scope
+    label: Check scope
+    placeholder: src (default)
+
+phases:
+  context:
+    agent:
+      name: Scout
+      describes: repo map
+      prompt: "List the files under {{ scope }} and say in one sentence what this code does. Do not modify any files."
+  execute:
+    fanout:
+      - name: Correctness
+        describes: logic bugs
+        prompt: "Read {{ scope }}. Name every correctness bug you can point at, with the line. Do not modify any files."
+      - name: Clarity
+        describes: naming
+        prompt: "Read {{ scope }}. Name anything unclear about its naming or structure. Do not modify any files."
+  report:
+    agent:
+      name: Reporter
+      describes: findings.md
+      artifacts: [".workflows/out/findings.md"]
+      prompt: "Read {{ scope }} and write the correctness bugs you find to .workflows/out/findings.md as a short markdown list. Use the Write tool, which creates the directory for you."

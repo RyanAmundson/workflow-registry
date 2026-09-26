@@ -1,0 +1,125 @@
+# Dependency audit — remove what is proven unused, report the rest.
+#
+# Source: dependency hygiene appears in every community audit playbook (the
+# /code-audit skill covers dependencies explicitly; depcheck is the standard
+# evidence tool in the cleanup workflows). The split that makes it safe to run
+# unattended: REMOVAL is only allowed for dependencies proven unreferenced,
+# verified by a clean install and green build afterward; outdated and
+# vulnerable dependencies are REPORTED, never auto-upgraded — an unattended
+# major-version bump is the "dependency upgrade flow" risk this deliberately
+# leaves to the operator.
+
+name: Dependency Audit
+description: Map dependency usage, remove only packages proven unused, verify the build, and report upgrades or vulnerabilities for follow-up.
+tags: [cleanup, deps, security, repairs, audit]
+trigger: manual
+estimate: ~10m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Package install and advisory checks require an explicitly internet-enabled cloud environment.
+  requires: [repository, shell, tests, public-network]
+  result: patch
+
+inputs:
+  manifest: package.json
+
+params:
+  - key: manifest
+    label: Package manifest
+    placeholder: package.json (default)
+
+phases:
+  context:
+    agent:
+      name: Inventory
+      describes: map deps to real imports
+      artifacts: [".workflows/out/dep-audit/deps.md"]
+      prompt: |
+        Read {{ manifest }} and map every dependency to the code that uses it.
+        Search the repo for imports and requires of each package, and check
+        the places plain search misses: build and test config, CLI scripts in
+        the manifest itself, plugin registries, and type-only imports. Note
+        the package manager and lockfile in use. Do not change any files.
+
+        Write .workflows/out/dep-audit/deps.md with the Write tool (it creates
+        the directory): each dependency with where it is used (file:line) or
+        the word UNREFERENCED, runtime and dev dependencies listed separately.
+        You must write this file.
+
+  plan:
+    agent:
+      name: Adjudicator
+      describes: removable, kept, or report-only
+      artifacts: [".workflows/out/dep-audit/dep-plan.md"]
+      prompt: |
+        Read .workflows/out/dep-audit/deps.md. Classify every dependency:
+        REMOVE only for UNREFERENCED ones you re-verify yourself, checking the
+        misses that burn people — packages loaded by convention (framework
+        plugins, transitive peer requirements, tools invoked by name in
+        scripts or CI); KEEP for everything in use; REPORT for anything that
+        looks outdated or risky, which the operator upgrades, not this
+        workflow. Do not change any files.
+
+        Write .workflows/out/dep-audit/dep-plan.md with the Write tool: the
+        three lists, each REMOVE entry with its proof in one line. You must
+        write this file even if nothing is removable.
+
+  execute:
+    agent:
+      name: Pruner
+      describes: remove, reinstall, verify
+      permissions: full
+      artifacts: [".workflows/out/dep-audit/prune-notes.md"]
+      prompt: |
+        Work through the REMOVE list in .workflows/out/dep-audit/dep-plan.md
+        one dependency at a time, using the repo's own package manager so the
+        lockfile stays consistent. After each removal, run install, build, and
+        the test suite; if anything breaks, restore that dependency exactly
+        and record why the proof was wrong. Also run the ecosystem's audit
+        command (for example `npm audit`) and capture its output for the
+        report — capture only, fix nothing.
+
+        Write .workflows/out/dep-audit/prune-notes.md with the Write tool:
+        each removal with its verification result, any restore with the
+        reason, and the raw vulnerability summary. You must write this file
+        even if the REMOVE list was empty.
+
+  review:
+    agent:
+      name: Checker
+      describes: manifests only, still green
+      permissions: full
+      artifacts: [".workflows/out/dep-audit/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/dep-audit/dep-plan.md
+        and prune-notes.md, run `git diff`, and confirm the diff touches only
+        the manifest and lockfile — no source changes belong in a dependency
+        audit. Re-run install, build, and the test suite yourself. For each
+        removed dependency, search the repo once more for any reference the
+        adjudicator missed.
+
+        Write .workflows/out/dep-audit/review.md with the Write tool: first
+        line `VERDICT: pass` or `VERDICT: fail`, then the evidence, and any
+        problem with file:line. You must write this file.
+
+  report:
+    agent:
+      name: Reporter
+      describes: commit removals, table the rest
+      permissions: full
+      artifacts: [".workflows/out/dep-audit/dep-report.md"]
+      prompt: |
+        Read .workflows/out/dep-audit/review.md, prune-notes.md, and
+        dep-plan.md. On `VERDICT: pass` with at least one removal, commit the
+        manifest and lockfile with a message listing the removed packages.
+        Never push; the operator decides what leaves this machine. On
+        `VERDICT: fail` or no removals, commit nothing.
+
+        Write .workflows/out/dep-audit/dep-report.md with the Write tool:
+        packages removed, packages kept with thin usage worth questioning, the
+        REPORT table of outdated or vulnerable dependencies with the operator
+        action each needs, and the commit hash if any. You must write this
+        file in every case.

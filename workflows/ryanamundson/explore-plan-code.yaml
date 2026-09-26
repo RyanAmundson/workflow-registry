@@ -1,0 +1,198 @@
+# Explore → Plan → Code → Commit — Anthropic's canonical Claude Code workflow.
+#
+# Sources: "Best practices for Claude Code" and Anthropic's official
+# `feature-dev` plugin. This adaptation keeps research separate from code, adds
+# parallel exploration, explicit ambiguity handling, three architecture options,
+# and independent correctness, simplicity, and convention reviews.
+#
+# Console adaptation: each phase is a fresh `claude -p` agent with no shared
+# conversation, so every agent writes its output to .workflows/out/ and the next
+# agent reads it from there. Progress lives in files, not in context.
+
+name: Explore Plan Code
+description: Explore a feature from several angles, resolve or expose ambiguity, choose a proportional architecture, implement it, and require three independent reviews.
+tags: [feature, plan, review, repairs, architecture]
+trigger: manual
+estimate: ~15m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Designed for an isolated checkout, provided the repository verification commands need no private network.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  task: >-
+    Pick the highest-value small improvement you can find in this repo (a TODO,
+    a promised-but-missing behavior, an obvious gap) and build it. Replace this
+    input with a real task description for a directed run.
+  constraints: none beyond repository rules
+  approach: recommend
+
+params:
+  - { key: task, label: Feature or change, required: true }
+  - { key: constraints, label: Constraints }
+  - { key: approach, label: Architecture bias, type: select, options: [recommend, minimal, clean] }
+
+# The task input doubles as the safety line: agents build only what it names.
+
+phases:
+  context:
+    fanout:
+      - name: Similarity Tracer
+        describes: analogous features and end-to-end flow
+        artifacts: [".workflows/out/explore-plan-code/similar.md"]
+        prompt: |
+          Research this task without changing source files: {{ task }}
+
+          Find the closest existing features and trace each from entry point to
+          output or storage. Name concrete files and lines, data transformations,
+          side effects, error paths, and tests. Identify the 5-10 files an
+          implementer must read. Write
+          .workflows/out/explore-plan-code/similar.md with the Write tool.
+      - name: Architecture Mapper
+        describes: boundaries, abstractions, and integration points
+        artifacts: [".workflows/out/explore-plan-code/architecture.md"]
+        prompt: |
+          Map the architecture relevant to this task without editing files:
+          {{ task }}
+
+          Trace module boundaries, public interfaces, state ownership,
+          dependency direction, configuration, persistence, and cross-cutting
+          concerns. Read applicable AGENTS.md, CLAUDE.md, or equivalent rules.
+          Identify extension points and constraints a new implementation must
+          respect. Write .workflows/out/explore-plan-code/architecture.md with
+          file:line evidence and the key files to read.
+      - name: Verification Scout
+        describes: tests, user behavior, and repository commands
+        artifacts: [".workflows/out/explore-plan-code/verification.md"]
+        prompt: |
+          Research how this repository would prove the following task is done,
+          without changing files: {{ task }}
+
+          Read manifests and CI configuration instead of guessing commands.
+          Identify unit/integration/end-to-end conventions, representative test
+          files, build/lint/typecheck commands, user-visible acceptance evidence,
+          compatibility obligations, and likely edge cases. Write
+          .workflows/out/explore-plan-code/verification.md with exact commands
+          and key files.
+
+  plan:
+    agent:
+      name: Feature Architect
+      describes: assumptions, alternatives, and chosen plan
+      artifacts: [".workflows/out/explore-plan-code/decision.md"]
+      prompt: |
+        Read .workflows/out/explore-plan-code/similar.md,
+        .workflows/out/explore-plan-code/architecture.md, and
+        .workflows/out/explore-plan-code/verification.md. Do not change source
+        files.
+
+        Task: {{ task }}
+        Operator constraints: {{ constraints }}
+        Architecture bias: {{ approach }}
+
+        Identify ambiguities in behavior, edge cases, error handling, integration,
+        compatibility, and scope. Resolve only what repository evidence or the
+        operator constraints settle. If an unresolved choice would materially
+        change behavior or architecture, write `STATUS: blocked` first and list
+        the concrete questions; do not invent answers.
+
+        Otherwise compare three proportional approaches: minimal change with
+        maximum reuse, clean-boundary design, and pragmatic balance. For each,
+        name files, data flow, trade-offs, and migration cost. Select the option
+        matching {{ approach }} (`recommend` means choose and justify the best
+        fit), then write `STATUS: ready` followed by assumptions, chosen design,
+        ordered file-by-file steps, explicit non-goals, acceptance criteria, and
+        exact verification commands. Write
+        .workflows/out/explore-plan-code/decision.md in both cases.
+
+  execute:
+    agent:
+      name: Builder
+      describes: implements the plan
+      permissions: full
+      artifacts: [".workflows/out/explore-plan-code/build-notes.md"]
+      prompt: |
+        Read .workflows/out/explore-plan-code/decision.md. If it begins
+        `STATUS: blocked`, change no source files and write
+        .workflows/out/explore-plan-code/build-notes.md beginning
+        `STATUS: blocked` with the unanswered questions. Otherwise implement
+        the chosen design. Read the key files named by all three scouts before
+        editing, follow their established patterns, stay inside scope, and fix
+        root causes rather than symptoms.
+
+        Run the verification commands the plan names and fix what fails. Do not
+        weaken or delete existing tests to get to green.
+
+        Write .workflows/out/explore-plan-code/build-notes.md beginning
+        `STATUS: complete`, `STATUS: blocked`, or `STATUS: failed`, then what
+        changed file by file, acceptance criteria satisfied, exact commands and
+        real results, and anything unresolved. You must write it even when no
+        implementation was possible.
+
+  review:
+    fanout:
+      - name: Correctness Reviewer
+        describes: requirements, behavior, and edge cases
+        permissions: full
+        artifacts: [".workflows/out/explore-plan-code/review-correctness.md"]
+        prompt: |
+          You are a fresh reviewer. Read
+          .workflows/out/explore-plan-code/decision.md and build-notes.md,
+          inspect `git diff` and `git status`, and trace changed behavior through
+          callers. Check every acceptance criterion, error path, edge case, and
+          test. Re-run the relevant verification commands. Report only concrete
+          defects with file:line and confidence 0-100; fail only for issues at
+          confidence 80 or above. First line: `VERDICT: pass`, `fail`, or
+          `blocked`. Write
+          .workflows/out/explore-plan-code/review-correctness.md.
+      - name: Simplicity Reviewer
+        describes: scope, reuse, and unnecessary complexity
+        permissions: full
+        artifacts: [".workflows/out/explore-plan-code/review-simplicity.md"]
+        prompt: |
+          Review .workflows/out/explore-plan-code/decision.md, build-notes.md,
+          and the actual diff as a fresh simplicity reviewer. Check that the
+          selected architecture was followed,
+          existing abstractions were reused where they fit, no speculative layer
+          or unrelated refactor slipped in, and the implementation is the
+          smallest coherent solution. Do not request stylistic churn. Report
+          concrete maintenance or scope defects with file:line and confidence;
+          fail only at 80+. First line `VERDICT: pass`, `fail`, or `blocked`.
+          Write .workflows/out/explore-plan-code/review-simplicity.md.
+      - name: Convention Reviewer
+        describes: repository rules and independent verification
+        permissions: full
+        artifacts: [".workflows/out/explore-plan-code/review-conventions.md"]
+        prompt: |
+          Review the actual diff against applicable AGENTS.md, CLAUDE.md, and
+          local conventions identified by the scouts. Check public compatibility,
+          generated artifacts, migrations, test placement, and whether tests or
+          checks were weakened. Re-run the exact verification commands yourself.
+          Report evidence-backed issues with the governing rule, file:line, and
+          confidence; fail only at 80+. First line `VERDICT: pass`, `fail`, or
+          `blocked`. Write
+          .workflows/out/explore-plan-code/review-conventions.md.
+
+  report:
+    agent:
+      name: Review Gate
+      describes: unanimous gate, commit, and summary
+      permissions: full
+      artifacts: [".workflows/out/explore-plan-code/report.md"]
+      prompt: |
+        Read .workflows/out/explore-plan-code/build-notes.md and all three
+        review files in that directory. Inspect git status. Only when
+        build-notes says complete and every reviewer says pass, commit the
+        task's source changes with a descriptive message explaining why the
+        change exists. Never include pre-existing unrelated changes and never
+        push. If any reviewer says fail/blocked, or the reviews disagree with
+        the actual tree, commit nothing.
+
+        Write .workflows/out/explore-plan-code/report.md with the Write tool:
+        what shipped or why nothing did, each reviewer verdict, the commit hash
+        if one was made, verification evidence, assumptions, and anything left
+        undone. You must write this file in both cases.

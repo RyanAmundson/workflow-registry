@@ -1,0 +1,137 @@
+# Type-design review adapted from Anthropic's `type-design-analyzer` agent.
+#
+# Source: anthropics/claude-code, plugins/pr-review-toolkit/agents/
+# type-design-analyzer.md. The workflow retains its four useful scoring axes but
+# adds independent construction, mutation, and compatibility reviews before a
+# synthesizer recommends only changes worth their migration cost.
+
+name: Type Design Review
+description: Review changed types for expressible invariants, safe construction and mutation, useful APIs, and justified compatibility costs.
+tags: [review, quality, diff, report-only, types, architecture]
+trigger: manual
+estimate: ~8m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Static type and usage analysis needs only the checked-out repository.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  base: main
+  scope: types introduced or materially changed by the diff
+
+params:
+  - { key: base, label: Base revision }
+  - { key: scope, label: Type scope }
+
+phases:
+  context:
+    agent:
+      name: Type Mapper
+      describes: definitions, constructors, and consumers
+      permissions: full
+      artifacts:
+        - ".workflows/out/type-design-review/diff.patch"
+        - ".workflows/out/type-design-review/inventory.md"
+      prompt: |
+        Inspect {{ scope }} relative to {{ base }} without editing source files.
+        Capture the diff in .workflows/out/type-design-review/diff.patch. Find
+        each changed type, schema, DTO, enum, tagged union, class, interface, or
+        data model; then trace its constructors/parsers, mutation points,
+        serialization boundaries, and representative consumers.
+
+        Write .workflows/out/type-design-review/inventory.md with one section
+        per type: file:line, purpose, states the code treats as valid,
+        construction paths, mutations, external formats, and existing tests.
+        Include applicable repository rules. An empty inventory is valid and
+        must still be written.
+
+  plan:
+    agent:
+      name: Invariant Cataloger
+      describes: explicit and implicit type promises
+      artifacts: [".workflows/out/type-design-review/invariants.md"]
+      prompt: |
+        Read .workflows/out/type-design-review/diff.patch and inventory.md. For
+        every inventoried type, state the invariants its consumers rely on:
+        field relationships, valid state
+        transitions, ownership, nullability, units, ranges, identity, ordering,
+        and compatibility promises. Mark each as compile-time enforced,
+        construction-time checked, mutation-time checked, externally assumed,
+        or documentation-only. Do not demand a domain model where a plain data
+        carrier is appropriate. Write
+        .workflows/out/type-design-review/invariants.md.
+
+  execute:
+    fanout:
+      - name: Construction Reviewer
+        describes: can invalid values be created?
+        artifacts: [".workflows/out/type-design-review/findings-construction.md"]
+        prompt: |
+          Read the inventory and invariant catalog, then inspect constructors,
+          parsers, decoders, factories, and deserializers. Find concrete paths
+          that create values consumers consider invalid, confusing optionality,
+          primitive fields that mix units or identities, and unions whose tags
+          do not rule out illegal combinations. Prefer the repository's native
+          type-system idioms. Give file:line, invalid value, construction path,
+          affected consumer, and a proportional correction. Write
+          .workflows/out/type-design-review/findings-construction.md; "No
+          findings" is valid.
+      - name: Encapsulation Reviewer
+        describes: can valid values become invalid?
+        artifacts: [".workflows/out/type-design-review/findings-encapsulation.md"]
+        prompt: |
+          Inspect mutation and ownership boundaries for each type. Find exposed
+          mutable internals, setters or update helpers that bypass invariants,
+          aliases that permit action at a distance, and state transitions with
+          missing preconditions. Do not prescribe immutability when controlled
+          mutation is clearer or faster. Give file:line, violating operation,
+          resulting illegal state, and the smallest enforceable improvement.
+          Write .workflows/out/type-design-review/findings-encapsulation.md.
+      - name: API Reviewer
+        describes: usefulness and compatibility
+        artifacts: [".workflows/out/type-design-review/findings-api.md"]
+        prompt: |
+          Inspect representative consumers and external formats. Find types
+          that are too permissive to prevent real bugs, too restrictive for
+          required use cases, combine unrelated responsibilities, leak storage
+          or transport details, or introduce an unjustified breaking change.
+          Account for inference, ergonomics, runtime cost, migrations, and
+          public compatibility. Give file:line, concrete consumer impact, and
+          a pragmatic alternative. Write
+          .workflows/out/type-design-review/findings-api.md.
+
+  review:
+    agent:
+      name: Type Design Synthesizer
+      describes: score invariants and reject overengineering
+      artifacts: [".workflows/out/type-design-review/scorecard.md"]
+      prompt: |
+        Read the inventory, invariants, and three findings files in
+        .workflows/out/type-design-review/. Verify every concern against actual
+        construction and use sites. For each type score 1-10 on: encapsulation,
+        invariant expression, invariant usefulness, and invariant enforcement.
+        Explain each score with evidence.
+
+        Keep a recommendation only when it prevents a named invalid state or
+        materially improves a real consumer, and when its complexity and
+        compatibility cost are justified. Reject speculative wrappers,
+        abstraction for its own sake, and breaking changes without a migration
+        story. Write .workflows/out/type-design-review/scorecard.md with
+        strengths, confirmed concerns, and prioritized improvements.
+
+  report:
+    agent:
+      name: Type Design Reporter
+      describes: concise scorecard and recommendations
+      artifacts: [".workflows/out/type-design-review/report.md"]
+      prompt: |
+        Turn .workflows/out/type-design-review/scorecard.md into
+        .workflows/out/type-design-review/report.md: scope and types reviewed,
+        the four-axis scorecard, confirmed risks ranked by likely defect impact,
+        and concrete improvements with migration notes. If no change is
+        justified, say the reviewed types express and enforce their useful
+        invariants adequately. Do not edit source files.

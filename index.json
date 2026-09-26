@@ -1,0 +1,1714 @@
+{
+  "format": "workflow-registry-v1",
+  "generatedAt": 1790389261096,
+  "workflows": [
+    {
+      "id": "adversarial-review",
+      "name": "Adversarial Review",
+      "description": "Challenge a proposed change with independent reviewers, remove false positives, and report only evidence-backed risks.",
+      "tags": [
+        "review",
+        "quality",
+        "diff",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "23598a6a0595f028386cc8ca1ef3d96a7b6ccbf495eaf5b22cf67792c411a402",
+      "latestBytes": 8580,
+      "trigger": "manual",
+      "estimate": "~12m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "base",
+          "label": "Base revision",
+          "placeholder": "main (default)"
+        },
+        {
+          "key": "focus",
+          "label": "Review focus",
+          "placeholder": "correctness, security, and test coverage (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Uses only the checked-out repository and returns a review report; no private services are needed.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/adversarial-review.yaml"
+    },
+    {
+      "id": "ai-attack-surface-suite",
+      "name": "AI Attack Surface Suite",
+      "description": "Run six model attack-surface scenarios three times each, with evidence, positive baselines and matched benign controls for retrieved-context scenarios. Deployed-agent and endpoint defenses remain untested.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "simulation",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "da9d0f5135668035bcc36e044f0aeb1b3660363d83d63e680253547a4a9acf40",
+      "latestBytes": 5689,
+      "trigger": "manual",
+      "estimate": "up to ~18m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "policyMode",
+          "label": "Lab tool policy",
+          "type": "select",
+          "options": [
+            "observe",
+            "enforce"
+          ]
+        },
+        {
+          "key": "mode",
+          "label": "Target",
+          "type": "select",
+          "options": [
+            "demo",
+            "model"
+          ]
+        },
+        {
+          "key": "configPath",
+          "label": "Model endpoint configuration",
+          "type": "path",
+          "pathKind": "file",
+          "when": {
+            "key": "mode",
+            "equals": "model"
+          }
+        },
+        {
+          "key": "demoBehavior",
+          "label": "Scripted demo behavior",
+          "type": "select",
+          "options": [
+            "follow",
+            "refuse",
+            "read-only"
+          ],
+          "when": {
+            "key": "mode",
+            "equals": "demo"
+          }
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
+        "requires": [
+          "host-files",
+          "shell",
+          "runtime-secrets"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ai-attack-surface-suite.yaml"
+    },
+    {
+      "id": "ai-prompt-injection",
+      "name": "AI Prompt Injection Exercise",
+      "description": "Exercise a document-to-tool-use attack path against a configured model, with generated canaries, a loopback receipt server, an authorized baseline and per-step evidence. Demo mode uses scripted model decisions.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "simulation",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "129c486e13af84bea3431224b9b453ba27b60d2234edba9abee4325d92da7164",
+      "latestBytes": 5349,
+      "trigger": "manual",
+      "estimate": "~3m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "mode",
+          "label": "Target",
+          "type": "select",
+          "options": [
+            "demo",
+            "model"
+          ]
+        },
+        {
+          "key": "configPath",
+          "label": "Model endpoint configuration",
+          "type": "path",
+          "pathKind": "file",
+          "when": {
+            "key": "mode",
+            "equals": "model"
+          }
+        },
+        {
+          "key": "demoBehavior",
+          "label": "Scripted demo behavior",
+          "type": "select",
+          "options": [
+            "follow",
+            "refuse",
+            "read-only"
+          ],
+          "when": {
+            "key": "mode",
+            "equals": "demo"
+          }
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
+        "requires": [
+          "host-files",
+          "shell",
+          "runtime-secrets"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ai-prompt-injection.yaml"
+    },
+    {
+      "id": "ai-protection-audit",
+      "name": "AI Protection Audit",
+      "description": "Audit imported endpoint coverage evidence for unenforced traffic, policy drift and visibility gaps. Includes a clearly labeled offline demo; never changes endpoint policy.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "audit",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "2f9b90ec258ece5c016721f0e01c5e45bd640f093607960cac6343ba34afc1ed",
+      "latestBytes": 4731,
+      "trigger": "manual",
+      "estimate": "~3m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "mode",
+          "label": "Evidence source",
+          "type": "select",
+          "options": [
+            "demo",
+            "imported"
+          ]
+        },
+        {
+          "key": "evidencePath",
+          "label": "Coverage evidence JSON",
+          "type": "path",
+          "pathKind": "file",
+          "when": {
+            "key": "mode",
+            "equals": "imported"
+          }
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Uses a bundled local evaluator and operator-supplied endpoint evidence.",
+        "requires": [
+          "host-files",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ai-protection-audit.yaml"
+    },
+    {
+      "id": "ai-protection-check",
+      "name": "AI Protection Evidence Review",
+      "description": "Correlate controlled test executions, policy events and destination receipts. Deterministically distinguish protected, escaped, benign-blocked and inconclusive results; includes an offline demo.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "validation",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "37a1afefd44d7d65c9656a78326d55bb639af159cf8e1165add7f7a5b04e3a82",
+      "latestBytes": 4562,
+      "trigger": "manual",
+      "estimate": "~3m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "mode",
+          "label": "Evidence source",
+          "type": "select",
+          "options": [
+            "demo",
+            "imported"
+          ]
+        },
+        {
+          "key": "evidencePath",
+          "label": "Protection evidence JSON",
+          "type": "path",
+          "pathKind": "file",
+          "when": {
+            "key": "mode",
+            "equals": "imported"
+          }
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Evaluates local endpoint test evidence using a bundled deterministic checker. Does not launch live tests.",
+        "requires": [
+          "host-files",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ai-protection-check.yaml"
+    },
+    {
+      "id": "ai-tool-permissions",
+      "name": "AI Tool Permission Exercise",
+      "description": "Exercise a request exceeding stated tool permissions against a configured model, with generated canaries, a loopback receipt server, an authorized baseline and per-step evidence. Demo mode uses scripted model decisions.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "simulation",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "a600ab8c9b60e086e19bdff6b80935bb15cbc7b9ffc22b73fd269ece96dee77a",
+      "latestBytes": 5357,
+      "trigger": "manual",
+      "estimate": "~3m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "mode",
+          "label": "Target",
+          "type": "select",
+          "options": [
+            "demo",
+            "model"
+          ]
+        },
+        {
+          "key": "configPath",
+          "label": "Model endpoint configuration",
+          "type": "path",
+          "pathKind": "file",
+          "when": {
+            "key": "mode",
+            "equals": "model"
+          }
+        },
+        {
+          "key": "demoBehavior",
+          "label": "Scripted demo behavior",
+          "type": "select",
+          "options": [
+            "follow",
+            "refuse",
+            "read-only"
+          ],
+          "when": {
+            "key": "mode",
+            "equals": "demo"
+          }
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Runs a local bounded executor and optionally contacts the exact model endpoint in an operator-owned config.",
+        "requires": [
+          "host-files",
+          "shell",
+          "runtime-secrets"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ai-tool-permissions.yaml"
+    },
+    {
+      "id": "backlog-burndown",
+      "name": "Backlog Burndown",
+      "description": "Select one actionable backlog item, implement it completely, verify the result, and report what shipped or blocked it.",
+      "tags": [
+        "feature",
+        "tickets",
+        "repairs"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "116cee248d82450aa96f80f1b598229bbbf2dcd3c01b18c5858a62c867a8eb7d",
+      "latestBytes": 5596,
+      "trigger": "manual",
+      "estimate": "~12m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "backlog",
+          "label": "Backlog file",
+          "placeholder": "TODO.md (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "The backlog, implementation, and verification all live in the isolated repository checkout.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/backlog-burndown.yaml"
+    },
+    {
+      "id": "behavior-doc",
+      "name": "Behavior Doc",
+      "description": "Trace one feature, every undocumented feature, or the whole product and write an evidence-backed document describing how it actually behaves.",
+      "tags": [
+        "docs",
+        "audit",
+        "report-only",
+        "behavior"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "3595e9bc4d439b6373d30e083e13fc1a779eb79570e39396dffa34e28b5cad6e",
+      "latestBytes": 9496,
+      "trigger": "manual",
+      "estimate": "~12m for one · longer for all",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "coverage",
+          "label": "What should be documented?",
+          "type": "select",
+          "options": [
+            "One feature",
+            "Undocumented features",
+            "All features"
+          ],
+          "required": true
+        },
+        {
+          "key": "feature",
+          "label": "Feature to document",
+          "placeholder": "Name the feature and briefly describe its purpose",
+          "required": true,
+          "when": {
+            "key": "coverage",
+            "equals": "One feature"
+          }
+        },
+        {
+          "key": "out",
+          "label": "Output directory",
+          "placeholder": "docs/behavior (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Traces repository code and returns documentation changes without requiring a deployed environment.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/behavior-doc.yaml"
+    },
+    {
+      "id": "cm-plugin-quality",
+      "name": "Context Manager Plugin Quality",
+      "description": "Grade every bundled Context Manager plugin against the plugin contract the host requires — identity, ingress and egress boundary, lifecycle, panel UI, data ownership, and verification — using the checkout's own contract audit for every contract fact, and issue evidence-backed A–F letter grades.",
+      "tags": [
+        "context-manager",
+        "plugins",
+        "quality",
+        "audit",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "7be967356f9f4cf63b4cd0952310b0f82c514837ef5da21c0c25f21350ae31ab",
+      "latestBytes": 11213,
+      "trigger": "manual",
+      "estimate": "~15–25m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "targets",
+          "label": "Plugin ids",
+          "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+        },
+        {
+          "key": "mode",
+          "label": "Verification mode",
+          "type": "select",
+          "options": [
+            "static",
+            "tests"
+          ]
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Runs the checkout's own contract audit, its lints, and the bundled grading helper on the host.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests",
+          "host-files"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/cm-plugin-quality.yaml"
+    },
+    {
+      "id": "comment-burden",
+      "name": "Comment Burden",
+      "description": "Find comments that cost a reader more than they save — stale, wrong, verbose, unreadable, or naming a concept the code calls something else — prove each one against the code, then fix them without touching a line of logic.",
+      "tags": [
+        "cleanup",
+        "comments",
+        "docs",
+        "repairs",
+        "review"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "b7f1047d59fe84bb5a101b274b1b7ae9165a711e926f323fa9e1170bf6d8d9b8",
+      "latestBytes": 18797,
+      "trigger": "manual",
+      "estimate": "~15–25m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Path scope",
+          "placeholder": "blank for the whole repository, or a subdirectory"
+        },
+        {
+          "key": "mode",
+          "label": "Mode",
+          "type": "select",
+          "options": [
+            "fix",
+            "report"
+          ]
+        },
+        {
+          "key": "kinds",
+          "label": "Kinds",
+          "placeholder": "all, or a comma-separated list such as dangling-reference,uncoupled-number"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Reads the checkout, runs a bundled Node scanner, and edits comments only. Needs no network and no browser.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/comment-burden.yaml"
+    },
+    {
+      "id": "coverage-gaps",
+      "name": "Coverage Gaps",
+      "description": "Find the riskiest untested behavior, add focused tests for it, and report the coverage gained.",
+      "tags": [
+        "tests",
+        "quality",
+        "repairs",
+        "coverage"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "c1a000f819a89fca3c3bdaba4c2ce4b21acb32480f0689ae9a4ad400e5a55d79",
+      "latestBytes": 5569,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Source scope",
+          "placeholder": "src (default)"
+        },
+        {
+          "key": "batch",
+          "label": "Maximum gaps",
+          "placeholder": "3 (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Writes tests and verifies them inside the checkout; the project test suite must not depend on a VPN.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/coverage-gaps.yaml"
+    },
+    {
+      "id": "dead-code-sweep",
+      "name": "Dead Code Sweep",
+      "description": "Prove code is unused, remove only the safe candidates, verify the repository, and report every decision.",
+      "tags": [
+        "cleanup",
+        "repairs",
+        "quality"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "b469927496dcbf2b64756e4fcd9a30255bc1fe17b54b13bd8f5352153b5b5156",
+      "latestBytes": 5497,
+      "trigger": "manual",
+      "estimate": "~12m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Code scope",
+          "placeholder": "src (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Repository-only cleanup with build and test verification; private integration tests must be excluded.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/dead-code-sweep.yaml"
+    },
+    {
+      "id": "dep-audit",
+      "name": "Dependency Audit",
+      "description": "Map dependency usage, remove only packages proven unused, verify the build, and report upgrades or vulnerabilities for follow-up.",
+      "tags": [
+        "cleanup",
+        "deps",
+        "security",
+        "repairs",
+        "audit"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "294a1e295b6c2d8bd15e4bb21e1d5f26a9ccf0253d67b61e0d64e0170a03c4df",
+      "latestBytes": 5574,
+      "trigger": "manual",
+      "estimate": "~10m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "manifest",
+          "label": "Package manifest",
+          "placeholder": "package.json (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Package install and advisory checks require an explicitly internet-enabled cloud environment.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests",
+          "public-network"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/dep-audit.yaml"
+    },
+    {
+      "id": "doc-sync",
+      "name": "Doc Sync",
+      "description": "Compare documentation with current behavior, fix stale claims, verify references, and report any unresolved gaps.",
+      "tags": [
+        "docs",
+        "cleanup",
+        "repairs"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "abcfbeec1fef67513ccbc11b15497fda40712c1a69414bf6ec16376d31f1ab5c",
+      "latestBytes": 5110,
+      "trigger": "manual",
+      "estimate": "~8m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "docs",
+          "label": "Documentation scope",
+          "placeholder": "README.md (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Checks documentation against files in the repository and returns documentation changes.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/doc-sync.yaml"
+    },
+    {
+      "id": "explore-plan-code",
+      "name": "Explore Plan Code",
+      "description": "Explore a feature from several angles, resolve or expose ambiguity, choose a proportional architecture, implement it, and require three independent reviews.",
+      "tags": [
+        "feature",
+        "plan",
+        "review",
+        "repairs",
+        "architecture"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "b301445c4df579a99b67a43893c13dc4437a49925a240c754de7debc154de9c8",
+      "latestBytes": 9954,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "task",
+          "label": "Feature or change",
+          "required": true
+        },
+        {
+          "key": "constraints",
+          "label": "Constraints"
+        },
+        {
+          "key": "approach",
+          "label": "Architecture bias",
+          "type": "select",
+          "options": [
+            "recommend",
+            "minimal",
+            "clean"
+          ]
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Designed for an isolated checkout, provided the repository verification commands need no private network.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/explore-plan-code.yaml"
+    },
+    {
+      "id": "feature-behavior-audit",
+      "name": "Feature Behavior Audit",
+      "description": "Inventory a feature's promised and actual behaviors, judge whether they deliver the intended outcome, and report the gaps.",
+      "tags": [
+        "audit",
+        "report-only",
+        "feature",
+        "behavior"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "657ce5d0fa7673d4dd7e720de3bef52f9872d722c140453fcb551aa63166c6e4",
+      "latestBytes": 11552,
+      "trigger": "manual",
+      "estimate": "~20m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Scope",
+          "type": "text",
+          "placeholder": "whole product, src/billing, admin workflow..."
+        },
+        {
+          "key": "focus",
+          "label": "Feature focus",
+          "type": "text",
+          "placeholder": "all features, onboarding, permissions..."
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Can complete from repository evidence and explicitly labels unavailable runtime evidence.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/feature-behavior-audit.yaml"
+    },
+    {
+      "id": "file-by-file-audit",
+      "name": "File by File — Audit and Ticket",
+      "description": "Inventory every non-generated file, audit its intended behavior, and record evidenced tickets without repairing application files.",
+      "tags": [
+        "audit",
+        "tickets",
+        "report-only",
+        "quality"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "93121c0ea197e36941539e1bf4b2745a72658aec8a6f8e6d81f71ca8e126f3f7",
+      "latestBytes": 16988,
+      "trigger": "manual",
+      "estimate": "~25m per batch",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "batchSize",
+          "label": "Maximum files to audit this run",
+          "placeholder": "10"
+        },
+        {
+          "key": "intent",
+          "label": "Current intended behavior and refactor context",
+          "type": "text",
+          "placeholder": "What changed, what replaced it, and which requirements are authoritative?"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Inventories and audits the checkout's own files and writes tickets and a report into it; every path it touches is repo-relative.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/file-by-file-audit.yaml"
+    },
+    {
+      "id": "file-by-file-audit-repair",
+      "name": "File by File — Audit, Ticket and Repair",
+      "description": "Inventory every non-generated file, review its purpose against evidence, turn findings into durable tickets, and verify fixes incrementally.",
+      "tags": [
+        "audit",
+        "tickets",
+        "repairs",
+        "quality"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "2e7b813c39beaa6484a2758d7cf6778d502aa6d2eb3335094c01a32ee27bb236",
+      "latestBytes": 19410,
+      "trigger": "manual",
+      "estimate": "~25m per batch",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "batchSize",
+          "label": "Maximum files to audit and tickets to repair per run",
+          "placeholder": "10"
+        },
+        {
+          "key": "intent",
+          "label": "Current intended behavior and refactor context",
+          "type": "text",
+          "placeholder": "What changed, what replaced it, and which requirements are authoritative?"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Audits the checkout's own files and repairs them in place, verifying each fix with the repository's own tests; every path it touches is repo-relative.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/file-by-file-audit-repair.yaml"
+    },
+    {
+      "id": "mcp-security-scanner",
+      "name": "MCP Security Scanner",
+      "description": "Inventory available MCP servers, inspect their configuration and implementation evidence, and produce reproducible A–F security grades with explicit unverified coverage and remediation.",
+      "tags": [
+        "security",
+        "mcp",
+        "audit",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "a518b2c9bdf52ab9af24fc175211390ff2c1b3d0d9d652aa4765f698da9215cc",
+      "latestBytes": 12358,
+      "trigger": "manual",
+      "estimate": "~15–30m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "targets",
+          "label": "MCP server names",
+          "placeholder": "all, or comma-separated names"
+        },
+        {
+          "key": "configFiles",
+          "label": "Configuration or exported inventory paths",
+          "placeholder": "auto, or newline-separated local paths"
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Reviews MCP configuration and installed source on the executing machine.",
+        "requires": [
+          "host-files",
+          "repository",
+          "shell",
+          "public-network"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/mcp-security-scanner.yaml"
+    },
+    {
+      "id": "phishing-campaign",
+      "name": "Phishing Campaign Rehearsal",
+      "description": "Generate account-security, shared-document and device-update phishing message drafts with local interactive rehearsals and debriefs. Does not deliver messages or collect credentials.",
+      "tags": [
+        "security",
+        "certiv",
+        "simulation",
+        "training",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "fafa57666def07bf1e3c41483d80c4681a1dd85296a213daf2e5cdd9aa80d12a",
+      "latestBytes": 3730,
+      "trigger": "manual",
+      "estimate": "~2m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scenario",
+          "label": "Campaign scenarios",
+          "type": "select",
+          "options": [
+            "all",
+            "account-security",
+            "shared-document",
+            "device-update"
+          ]
+        },
+        {
+          "key": "organizationName",
+          "label": "Organization display name",
+          "type": "text"
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Writes local campaign drafts and browser rehearsals using the bundled Node generator.",
+        "requires": [
+          "host-files",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/phishing-campaign.yaml"
+    },
+    {
+      "id": "quick-check",
+      "name": "Quick Check",
+      "description": "Inspect a focused area for correctness and clarity, then write a concise findings report without changing product code.",
+      "tags": [
+        "audit",
+        "quality",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "77a456ed0183c7a9408c2f8ca56ce1e7cae02fa9c9c4c03ce62b79f1b900321d",
+      "latestBytes": 1390,
+      "trigger": "manual",
+      "estimate": "~1m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Check scope",
+          "placeholder": "src (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Runs the repository's local verification commands and reports their results.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/quick-check.yaml"
+    },
+    {
+      "id": "react-cleanup",
+      "name": "React Cleanup",
+      "description": "Remove code that brings no value from one area of a React app at a time — unrendered components, pass-through wrappers, trivial hooks, duplicated primitives, architecture drift — in small bites, each its own commit behind a green build and tests.",
+      "tags": [
+        "cleanup",
+        "ui",
+        "architecture",
+        "repairs",
+        "quality"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "6ca32d455cdc7a0073d46334605ea66210cecf3112f387952e3b978e7b200d96",
+      "latestBytes": 12292,
+      "trigger": "manual",
+      "estimate": "~20–40m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "silo",
+          "label": "Silo",
+          "placeholder": "one feature or directory, such as src/features/billing — blank picks the worst one and stops after planning"
+        },
+        {
+          "key": "bites",
+          "label": "Bite budget",
+          "placeholder": "most commits this run may land (default 8)"
+        },
+        {
+          "key": "mode",
+          "label": "Mode",
+          "type": "select",
+          "options": [
+            "fix",
+            "report"
+          ]
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Reads the checkout, edits source, and runs the project's own build and tests. Needs no network and no browser.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/react-cleanup.yaml"
+    },
+    {
+      "id": "security-pass",
+      "name": "Security Pass",
+      "description": "Audit the repository for exploitable security risks, validate each finding, apply safe fixes, and report remaining exposure.",
+      "tags": [
+        "security",
+        "audit",
+        "repairs"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "18f1c8b5a170ee6f81d493594ac9eaf3406dc7705119661cd0a12a065414dcff",
+      "latestBytes": 7353,
+      "trigger": "manual",
+      "estimate": "~12m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Security review scope",
+          "placeholder": "src (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Static repository security review that does not probe a deployed or private environment.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/security-pass.yaml"
+    },
+    {
+      "id": "security-validation-lab",
+      "name": "Security Validation Lab",
+      "description": "Execute both lab policy modes across six AI scenarios, then generate three phishing rehearsals. Produces visual reports from actual local execution; model decisions are scripted.",
+      "tags": [
+        "security",
+        "certiv",
+        "ai",
+        "simulation",
+        "training",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "483507070349e9a46c9a56f902ce11f7e3c7d83e935e4fd664a4a6d7cd62e67b",
+      "latestBytes": 2876,
+      "trigger": "manual",
+      "estimate": "~2m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "cloud": {
+        "compatible": false,
+        "reason": "Executes the bundled local fixture and receipt-service lab.",
+        "requires": [
+          "host-files",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/security-validation-lab.yaml"
+    },
+    {
+      "id": "silent-failure-hunt",
+      "name": "Silent Failure Hunt",
+      "description": "Find swallowed errors, misleading fallbacks, and unactionable failure paths in changed code, then verify each one against real control flow.",
+      "tags": [
+        "quality",
+        "audit",
+        "diff",
+        "report-only",
+        "errors"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "da1492da6bbca639e5a91ad783ebbfce30a8dc7878da5571d07181f7a368cd3a",
+      "latestBytes": 6758,
+      "trigger": "manual",
+      "estimate": "~8m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "base",
+          "label": "Base revision"
+        },
+        {
+          "key": "scope",
+          "label": "Review scope"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Reviews repository code and history without needing deployed services or private data.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/silent-failure-hunt.yaml"
+    },
+    {
+      "id": "simplify-pass",
+      "name": "Simplify Pass",
+      "description": "Find avoidable complexity, make behavior-preserving simplifications, verify the result, and report what changed.",
+      "tags": [
+        "cleanup",
+        "quality",
+        "repairs",
+        "architecture"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "ed73dddb333c4fc5f122ad040bbe7e02626985b0bce3e5383d2e0f6b3bbca79d",
+      "latestBytes": 5573,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "Refactor scope",
+          "placeholder": "src (default)"
+        },
+        {
+          "key": "batch",
+          "label": "Maximum changes",
+          "placeholder": "3 (default)"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Repository-only refactoring with local test verification; no private services may be part of the suite.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/simplify-pass.yaml"
+    },
+    {
+      "id": "tdd-feature",
+      "name": "TDD Feature",
+      "description": "Specify a behavior with failing tests, implement it until green, independently check for overfitting, and report the evidence.",
+      "tags": [
+        "feature",
+        "tests",
+        "repairs",
+        "behavior"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "515cb8e9a14e5919302a1dd7862da92768c5e4e749973504dffddafd035e2d6b",
+      "latestBytes": 5665,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "behavior",
+          "label": "Behavior to build",
+          "placeholder": "Describe one behavior, or leave blank to let the workflow choose"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Test-first implementation is self-contained when the project's tests run without VPN or private services.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests"
+        ],
+        "result": "patch"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/tdd-feature.yaml"
+    },
+    {
+      "id": "type-design-review",
+      "name": "Type Design Review",
+      "description": "Review changed types for expressible invariants, safe construction and mutation, useful APIs, and justified compatibility costs.",
+      "tags": [
+        "review",
+        "quality",
+        "diff",
+        "report-only",
+        "types",
+        "architecture"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "1f4727bbf6fbd7a627bd3da36a26ffc526e9d7602a62987d84ee60cbf90f5e9c",
+      "latestBytes": 6730,
+      "trigger": "manual",
+      "estimate": "~8m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "base",
+          "label": "Base revision"
+        },
+        {
+          "key": "scope",
+          "label": "Type scope"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Static type and usage analysis needs only the checked-out repository.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/type-design-review.yaml"
+    },
+    {
+      "id": "ui-backend-scalability-audit",
+      "name": "UI Backend Scalability Audit",
+      "description": "Trace UI actions to backend calls, identify request and data growth risks, verify evidence, and rank scalable fixes without changing application code.",
+      "tags": [
+        "audit",
+        "ui",
+        "performance",
+        "backend",
+        "report-only",
+        "data"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "8106659eb49983924c4958ba9fa211800f5390aedb47fb12090d0a228b6c84ef",
+      "latestBytes": 12387,
+      "trigger": "manual",
+      "estimate": "~25m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "UI scope",
+          "type": "text",
+          "placeholder": "entire UI codebase, src/pages, billing dashboard..."
+        },
+        {
+          "key": "backendPath",
+          "label": "Backend source path (optional)",
+          "type": "text",
+          "placeholder": "not provided, or an available backend checkout path"
+        },
+        {
+          "key": "scaleContext",
+          "label": "Expected scale or performance budgets",
+          "type": "text",
+          "placeholder": "concurrent users, records per tenant, rows per page, request or latency budgets..."
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Audits repository evidence without requiring a running service; marks missing backend and runtime evidence explicitly.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ui-backend-scalability-audit.yaml"
+    },
+    {
+      "id": "ui-centralization-audit",
+      "name": "UI Centralization Audit",
+      "description": "Find decentralized UI anti-patterns, duplicated behavior, and bypassed shared primitives; verify what should be centralized and propose bounded migrations without changing application code.",
+      "tags": [
+        "audit",
+        "ui",
+        "architecture",
+        "quality",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "feb7f5a14b853e5ef4085b806a7a9c893747cd898243a92400bebb631c318f65",
+      "latestBytes": 10944,
+      "trigger": "manual",
+      "estimate": "~25m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "UI scope",
+          "type": "text",
+          "placeholder": "entire UI codebase, src/features, settings screens..."
+        },
+        {
+          "key": "sharedRoots",
+          "label": "Shared UI or design-system paths",
+          "type": "text",
+          "placeholder": "discover from repository, or packages/ui and src/shared..."
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Uses repository evidence; missing runtime or design-system evidence remains explicit.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ui-centralization-audit.yaml"
+    },
+    {
+      "id": "ui-declarative-split",
+      "name": "UI Declarative Split",
+      "description": "Measure how much of a UI codebase is declarative versus imperative, weighted by lines, with the imperative share separated into necessary escape hatches and avoidable ones.",
+      "tags": [
+        "review",
+        "quality",
+        "audit",
+        "report-only",
+        "ui",
+        "architecture"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "6c305d60523e619d2eae3235cbbe6a7959c4f0fa97196a7ef661064f0db8e920",
+      "latestBytes": 17529,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "edits",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "UI source root",
+          "placeholder": "src (default) — a directory or glob containing the UI code"
+        },
+        {
+          "key": "max_files",
+          "label": "Maximum files to score",
+          "placeholder": "120 (default) — beyond this the largest files are scored and the rest are estimated from the census"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Static reading of the checked-out repository only; the census uses git and grep, and the result is a report.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ui-declarative-split.yaml"
+    },
+    {
+      "id": "ui-layout-audit",
+      "name": "UI Layout Audit",
+      "description": "Test appropriate and consistent Flexbox and CSS Grid use, verify responsive layouts in a browser, and issue an evidence-backed A–F grade with explicit coverage and prioritized fixes.",
+      "tags": [
+        "ui",
+        "css",
+        "layout",
+        "quality",
+        "audit",
+        "report-only"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "f9ab19b85023d85b44b9b1e969a0fe9581f6bed4693dbc968fa830d703b3ef8f",
+      "latestBytes": 14038,
+      "trigger": "manual",
+      "estimate": "~15–30m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "scope",
+          "label": "UI source directory",
+          "placeholder": "src, app, or packages/web"
+        },
+        {
+          "key": "baseUrl",
+          "label": "Running app URL",
+          "placeholder": "auto — use documented local setup if needed"
+        },
+        {
+          "key": "routes",
+          "label": "Routes to test",
+          "placeholder": "auto — representative routes, or comma-separated paths"
+        },
+        {
+          "key": "mode",
+          "label": "Verification mode",
+          "type": "select",
+          "options": [
+            "browser",
+            "source-only"
+          ]
+        },
+        {
+          "key": "maxFiles",
+          "label": "Maximum source files to review",
+          "placeholder": "120 — larger scopes receive a provisional grade"
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Requires the bundled grading helper and a project browser environment; source-only fallback remains provisional.",
+        "requires": [
+          "repository",
+          "shell",
+          "tests",
+          "browser",
+          "host-files"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/ui-layout-audit.yaml"
+    },
+    {
+      "id": "what-is-off",
+      "name": "What Is Off?",
+      "description": "Diagnose why a working product still misses its intended experience, connect evidence to root causes, and report a prioritized recovery plan.",
+      "tags": [
+        "audit",
+        "plan",
+        "report-only",
+        "ui",
+        "behavior"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "42af9decc1a7e231ada3561a78c32f03d9ced572b984abdff2754f2fb6b18872",
+      "latestBytes": 13401,
+      "trigger": "manual",
+      "estimate": "~20m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "question",
+          "label": "Diagnostic question",
+          "type": "text",
+          "placeholder": "What is off about this app? (default)"
+        },
+        {
+          "key": "focus",
+          "label": "Focus",
+          "type": "text",
+          "placeholder": "whole product, onboarding, the core loop…"
+        },
+        {
+          "key": "surface_url",
+          "label": "App URL",
+          "type": "text",
+          "placeholder": "auto-discover, or a URL to inspect"
+        }
+      ],
+      "cloud": {
+        "compatible": true,
+        "reason": "Source-based diagnosis is complete in cloud; authenticated or private runtime observations remain unavailable.",
+        "requires": [
+          "repository",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/what-is-off.yaml"
+    },
+    {
+      "id": "workflow-audit",
+      "name": "Workflow Audit",
+      "description": "Run the global workflow library against a small fixture repo through the real runner, record which workflows finish and what they cost, judge their output, and keep a consistency tally across audits.",
+      "tags": [
+        "audit",
+        "console",
+        "report-only",
+        "validation"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "3939c68e3378a33bc1720567dbb5ca52aa403afd3f046976933804ecee851371",
+      "latestBytes": 11487,
+      "trigger": "manual",
+      "estimate": "~5m plus ~10m per probed workflow",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "select",
+          "label": "Workflows to probe",
+          "placeholder": "sweep (default), or ids separated by commas, for example quick-check,dep-audit"
+        },
+        {
+          "key": "max",
+          "label": "Maximum workflows to probe this run (sweep only)",
+          "placeholder": "4"
+        },
+        {
+          "key": "timeoutMin",
+          "label": "Minutes before a probe counts as timed out",
+          "placeholder": "20"
+        },
+        {
+          "key": "repeat",
+          "label": "Probe workflows that already have an attempt",
+          "type": "select",
+          "options": [
+            "no",
+            "yes"
+          ]
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Drives this machine's own runner and Claude credentials against a local fixture checkout.",
+        "requires": [
+          "host-files",
+          "shell"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/workflow-audit.yaml"
+    },
+    {
+      "id": "workflow-console-install",
+      "name": "Install Workflow Console",
+      "description": "Connect to another Apple Silicon Mac, install Workflow Console, enroll it in this vault, and verify what is ready or still needs a person.",
+      "tags": [
+        "ops",
+        "console",
+        "install"
+      ],
+      "format": "workflow-yaml-v1",
+      "latestVersion": "1efc4309f7e93607105f19403ac9214fc1e9d283d1e24b544256260e8a511c48",
+      "latestBytes": 8291,
+      "trigger": "manual",
+      "estimate": "~15m",
+      "enabled": true,
+      "permissions": "full",
+      "model": "claude-sonnet-5",
+      "params": [
+        {
+          "key": "machine_name",
+          "label": "New machine name",
+          "placeholder": "Studio Mac",
+          "required": true
+        },
+        {
+          "key": "access",
+          "label": "How can we access the other machine?",
+          "placeholder": "SSH alias or other preconfigured access — never paste a password or private key",
+          "required": true
+        },
+        {
+          "key": "use_ssh",
+          "label": "Use SSH for the connection",
+          "type": "checkbox"
+        }
+      ],
+      "cloud": {
+        "compatible": false,
+        "reason": "Installation needs this machine's enrollment, private access to another Mac, and permission to install and launch a desktop app there.",
+        "requires": [
+          "private-network",
+          "runtime-secrets",
+          "host-files",
+          "desktop-ui"
+        ],
+        "result": "report"
+      },
+      "updatedAt": 1790389261096,
+      "owner": "ryanamundson",
+      "path": "workflows/ryanamundson/workflow-console-install.yaml"
+    }
+  ]
+}

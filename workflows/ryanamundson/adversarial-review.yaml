@@ -1,0 +1,174 @@
+# Adversarial diff review — fresh-context reviewers, then a skeptic kills the
+# false positives.
+#
+# Sources: "Best practices for Claude Code" and Anthropic's official
+# `code-review` plugin. The plugin contributes independent reviewers, relevant
+# repository-rule discovery, git-history context, and confidence filtering. A
+# fresh skeptic still tries to REFUTE every candidate; confidence is earned by
+# surviving that pass, not by a hunter asserting it.
+#
+# Report-only: this workflow never edits code. Run it on a branch before landing.
+
+name: Adversarial Review
+description: Challenge a proposed change with independent reviewers, remove false positives, and report only evidence-backed risks.
+tags: [review, quality, diff, report-only]
+trigger: manual
+estimate: ~12m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Uses only the checked-out repository and returns a review report; no private services are needed.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  base: main
+  focus: correctness, security, and test coverage
+
+params:
+  - key: base
+    label: Base revision
+    placeholder: main (default)
+  - key: focus
+    label: Review focus
+    placeholder: correctness, security, and test coverage (default)
+
+phases:
+  context:
+    agent:
+      name: Differ
+      describes: capture the diff under review
+      permissions: full
+      artifacts: [".workflows/out/adversarial-review/diff.patch", ".workflows/out/adversarial-review/files.md"]
+      prompt: |
+        Capture what this branch changes relative to {{ base }}. Run
+        `git diff {{ base }}...HEAD` (fall back to `git diff {{ base }}` if the
+        triple-dot form fails) and `git diff {{ base }}...HEAD --stat`.
+
+        Write the full diff to .workflows/out/adversarial-review/diff.patch and
+        the file list with per-file change summaries to
+        .workflows/out/adversarial-review/files.md, both with the Write tool
+        (it creates the directory). If the diff is empty, write both files
+        anyway and say the branch has no changes against {{ base }}. Do not
+        modify any source files.
+
+  plan:
+    agent:
+      name: Triage
+      describes: rank the risky hunks
+      artifacts: [".workflows/out/adversarial-review/triage.md"]
+      prompt: |
+        Read .workflows/out/adversarial-review/diff.patch and files.md. Rank
+        the changed areas by review priority: behavior changes above renames,
+        shared code above leaf code, {{ focus }} above style. Note which hunks
+        deserve a careful read and which are mechanical.
+
+        Write .workflows/out/adversarial-review/triage.md with the Write tool,
+        priority-ordered, one line of reasoning per area. Find the applicable
+        AGENTS.md, CLAUDE.md, or equivalent repository instructions for each
+        changed file and quote only the rules that materially constrain the
+        diff. Do not modify source files. You must write this file even for an
+        empty diff.
+
+  execute:
+    fanout:
+      - name: Correctness
+        describes: logic and edge cases
+        artifacts: [".workflows/out/adversarial-review/findings-correctness.md"]
+        prompt: |
+          Read .workflows/out/adversarial-review/diff.patch and triage.md, and
+          open the changed files in the repo for full context. Hunt for
+          correctness defects in the changed code only: wrong conditions,
+          unhandled errors, off-by-one boundaries, broken callers of changed
+          signatures, race conditions.
+
+          For each finding give file:line, the defect in one sentence, the
+          concrete input or state that triggers it, and provisional confidence
+          from 0-100. A score of 80 means you traced a likely real failure, not
+          merely a suspicious pattern. Write the findings to
+          .workflows/out/adversarial-review/findings-correctness.md with the
+          Write tool. No findings is a valid result — write the file saying so.
+          Do not modify any source files.
+      - name: Security
+        describes: injection, authz, secrets
+        artifacts: [".workflows/out/adversarial-review/findings-security.md"]
+        prompt: |
+          Read .workflows/out/adversarial-review/diff.patch and triage.md, and
+          open the changed files for context. Hunt for security defects the
+          change introduces: injection (SQL, XSS, command), missing
+          authorization checks, secrets or credentials in code, unsafe handling
+          of user-controlled data.
+
+          For each finding give file:line, the vulnerability, how an attacker
+          reaches it, and provisional confidence 0-100. Write the findings to
+          .workflows/out/adversarial-review/findings-security.md with the
+          Write tool. No findings is a valid result — write the file saying so.
+          Do not modify any source files.
+      - name: Tests
+        describes: coverage of the changed behavior
+        artifacts: [".workflows/out/adversarial-review/findings-tests.md"]
+        prompt: |
+          Read .workflows/out/adversarial-review/diff.patch and triage.md.
+          Check whether the changed behavior is tested: new branches without a
+          test, assertions weakened or deleted, tests that pass regardless of
+          the code (no meaningful assertion), edge cases the diff introduces
+          but never exercises.
+
+          For each finding give file:line, the untested scenario, why existing
+          coverage misses it, and provisional confidence 0-100. Write the
+          findings to .workflows/out/adversarial-review/findings-tests.md with
+          the Write tool. No findings is a valid result — write the file saying
+          so. Do not modify any source files.
+      - name: History
+        describes: intent and regression context
+        artifacts: [".workflows/out/adversarial-review/findings-history.md"]
+        prompt: |
+          Read .workflows/out/adversarial-review/diff.patch and triage.md. Use
+          `git log`, `git blame`, and the surrounding code to understand why the
+          changed behavior existed. Look for a restored bug, a removed guard or
+          compatibility path, an invariant established by an earlier fix, or a
+          caller contract the diff now violates. History is context, not proof:
+          trace every candidate against current code and report only a concrete
+          failure introduced by this diff. Give file:line, the relevant commit
+          or prior behavior, the failure scenario, and provisional confidence
+          0-100. Write findings-history.md. Do not modify source files.
+
+  review:
+    agent:
+      name: Skeptic
+      describes: refute or confirm each finding
+      artifacts: [".workflows/out/adversarial-review/verified.md"]
+      prompt: |
+        Read the four findings files in .workflows/out/adversarial-review/
+        (findings-correctness.md, findings-security.md, findings-tests.md, and
+        findings-history.md).
+        For each finding, actively try to refute it by reading the actual code:
+        is the "missing check" done by a caller? Is the "untested branch"
+        unreachable? Check every claimed repository-rule violation against the
+        instruction file that actually governs that path. Rescore confidence
+        after this investigation and keep only findings at 80 or above. Default
+        to refuted when evidence is thin — a review full of maybes is worse
+        than a short review of certainties.
+
+        Write .workflows/out/adversarial-review/verified.md with the Write
+        tool: only the findings that survive, each with severity, confidence,
+        file:line, a one-line failure scenario, and why the refutation failed.
+        List the refuted ones in one line each at the bottom. You must write
+        this file. Do not modify any source files.
+
+  report:
+    agent:
+      name: Reporter
+      describes: ranked review report
+      artifacts: [".workflows/out/adversarial-review/review-report.md"]
+      prompt: |
+        Read .workflows/out/adversarial-review/verified.md and files.md. Write
+        the final review to .workflows/out/adversarial-review/review-report.md
+        with the Write tool: a two-sentence summary of what the branch changes,
+        then the confirmed findings ranked most severe first, each with
+        confidence, file:line, the failure scenario, and a suggested fix in one
+        or two sentences. If nothing survived verification, say the diff passed
+        review and name the rules and risk classes checked. Do not modify any
+        source files.

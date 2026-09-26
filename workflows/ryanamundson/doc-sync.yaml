@@ -1,0 +1,118 @@
+# Doc sync — find where the docs lie about the code, and fix the docs.
+#
+# Source: documentation upkeep is one of the recurring wins in "How Anthropic
+# teams use Claude Code" (claude.com/blog/how-anthropic-teams-use-claude-code),
+# and "doc generation / doc sync" appears in every 2026 community workflow
+# roundup — it is the classic recurring chore nobody does by hand. The rule
+# that makes it safe to run unattended: every claim gets verified against the
+# code before anything is rewritten, and only the docs change, never the code.
+
+# Trigger is manual on purpose: this is a global workflow, and a schedule here
+# would fire for every project that offers it. Flip to `weekly` per repo by
+# moving it into that repo and editing the line.
+name: Doc Sync
+description: Compare documentation with current behavior, fix stale claims, verify references, and report any unresolved gaps.
+tags: [docs, cleanup, repairs]
+trigger: manual
+estimate: ~8m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Checks documentation against files in the repository and returns documentation changes.
+  requires: [repository, shell]
+  result: patch
+
+inputs:
+  docs: README.md
+
+params:
+  - key: docs
+    label: Documentation scope
+    placeholder: README.md (default)
+
+phases:
+  context:
+    agent:
+      name: Claim Inventory
+      describes: what the docs assert
+      artifacts: [".workflows/out/doc-sync/claims.md"]
+      prompt: |
+        Read {{ docs }} in this repository and inventory every checkable claim
+        it makes: commands the reader is told to run, file paths, script and
+        flag names, API and function names, described behaviors, port numbers,
+        and version numbers. Do not change any files.
+
+        Write .workflows/out/doc-sync/claims.md with the Write tool (it
+        creates the directory): one claim per line with where it appears
+        (file:line) and what in the repo would prove or disprove it. You must
+        write this file.
+
+  plan:
+    agent:
+      name: Prioritizer
+      describes: which claims to check first
+      artifacts: [".workflows/out/doc-sync/check-plan.md"]
+      prompt: |
+        Read .workflows/out/doc-sync/claims.md. Order the claims by likelihood
+        of drift and by the damage a stale one does: setup commands a newcomer
+        runs first, then paths and names (renames are the commonest drift),
+        then described behaviors. Note for each where to look in the code. Do
+        not change any files.
+
+        Write the ordered list to .workflows/out/doc-sync/check-plan.md with
+        the Write tool. You must write this file even if there are few claims.
+
+  execute:
+    agent:
+      name: Fixer
+      describes: verify claims, repair drift
+      artifacts: [".workflows/out/doc-sync/drift.md"]
+      prompt: |
+        Work through .workflows/out/doc-sync/check-plan.md. Verify each claim
+        against the actual code: read package.json and scripts for commands,
+        check that named files and symbols exist, read the implementation for
+        described behaviors. Where the doc is wrong, fix the doc to match the
+        code — never change code to match a doc. Preserve the document's voice
+        and formatting; correct facts, do not rewrite prose.
+
+        Write .workflows/out/doc-sync/drift.md with the Write tool: each claim
+        with a verdict — accurate, fixed (with old → new), or unverifiable
+        (with why, for example a claim only a running system can prove). You
+        must write this file even if every claim was accurate.
+
+  review:
+    agent:
+      name: Re-reader
+      describes: are the fixes themselves true?
+      permissions: full
+      artifacts: [".workflows/out/doc-sync/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/doc-sync/drift.md, run
+        `git diff` over {{ docs }}, and check each edit against the code
+        yourself: a doc fix that introduces a new falsehood is worse than the
+        drift it replaced. Confirm no code file was modified, and that meaning
+        was corrected rather than prose flattened.
+
+        Write .workflows/out/doc-sync/review.md with the Write tool: first
+        line `VERDICT: pass` or `VERDICT: fail`, then any edit that is wrong
+        or lossy, with file:line and what it should say. Do not modify any
+        files beyond writing this report.
+
+  report:
+    agent:
+      name: Scribe
+      describes: commit the corrected docs
+      permissions: full
+      artifacts: [".workflows/out/doc-sync/report.md"]
+      prompt: |
+        Read .workflows/out/doc-sync/review.md and drift.md. On
+        `VERDICT: pass` with at least one fix, commit the doc changes with a
+        message listing the corrected claims. Never push; the operator decides
+        what leaves this machine. On `VERDICT: fail`, commit nothing. If every
+        claim was already accurate, commit nothing.
+
+        Write .workflows/out/doc-sync/report.md with the Write tool: claims
+        checked, fixes made, claims left unverifiable, the commit hash if any.
+        You must write this file in every case.

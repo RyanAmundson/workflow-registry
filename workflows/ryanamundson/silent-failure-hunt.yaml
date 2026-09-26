@@ -1,0 +1,138 @@
+# Silent-failure review adapted from Anthropic's `silent-failure-hunter` agent.
+#
+# Source: anthropics/claude-code, plugins/pr-review-toolkit/agents/
+# silent-failure-hunter.md. The upstream agent is intentionally uncompromising;
+# this workflow adds independent control-flow, fallback, and operator-experience
+# lenses, then requires a skeptic to prove reachability before reporting.
+
+name: Silent Failure Hunt
+description: Find swallowed errors, misleading fallbacks, and unactionable failure paths in changed code, then verify each one against real control flow.
+tags: [quality, audit, diff, report-only, errors]
+trigger: manual
+estimate: ~8m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Reviews repository code and history without needing deployed services or private data.
+  requires: [repository, shell]
+  result: report
+
+inputs:
+  base: main
+  scope: changed production code
+
+params:
+  - { key: base, label: Base revision }
+  - { key: scope, label: Review scope }
+
+phases:
+  context:
+    agent:
+      name: Failure Mapper
+      describes: inventory error and fallback paths
+      permissions: full
+      artifacts:
+        - ".workflows/out/silent-failure-hunt/diff.patch"
+        - ".workflows/out/silent-failure-hunt/map.md"
+      prompt: |
+        Review {{ scope }} relative to {{ base }} without changing source files.
+        Capture the diff (prefer `git diff {{ base }}...HEAD`, falling back to
+        `git diff {{ base }}`) in
+        .workflows/out/silent-failure-hunt/diff.patch.
+
+        Trace every changed error boundary and nearby caller: catch/except
+        blocks, rejected promises, Result/Option handling, error callbacks,
+        retries, fallback branches, null/default returns, optional chaining,
+        and log-and-continue paths. Write
+        .workflows/out/silent-failure-hunt/map.md with file:line, the operation
+        that can fail, who observes the outcome, and the project rules that
+        govern the code. Empty scope is valid; still write both files.
+
+  plan:
+    agent:
+      name: Risk Triage
+      describes: prioritize failures by user impact
+      artifacts: [".workflows/out/silent-failure-hunt/triage.md"]
+      prompt: |
+        Read .workflows/out/silent-failure-hunt/diff.patch and map.md. Rank paths
+        where a failure could be mistaken for success, corrupt state, hide lost
+        work, suppress cleanup, or leave an operator with no actionable
+        diagnosis. Separate deliberate optional behavior from failure masking.
+        Write ranked paths and concrete failure inputs to
+        .workflows/out/silent-failure-hunt/triage.md. Do not edit source files.
+
+  execute:
+    fanout:
+      - name: Propagation Auditor
+        describes: swallowed exceptions and broken cleanup
+        artifacts: [".workflows/out/silent-failure-hunt/findings-propagation.md"]
+        prompt: |
+          Read the artifacts in .workflows/out/silent-failure-hunt/, then trace
+          each relevant path through callers. Find errors caught too broadly,
+          dropped rejections,
+          log-and-continue branches that report success, lost causal context,
+          retries that end silently, and cleanup skipped by early returns.
+          Report only changed behavior or a pre-existing defect made reachable
+          by the change. For each candidate give file:line, the exact failing
+          input/state, the visible outcome, and provisional confidence 0-100.
+          Write .workflows/out/silent-failure-hunt/findings-propagation.md;
+          write "No findings" when clean.
+      - name: Fallback Auditor
+        describes: defaults that disguise failure
+        artifacts: [".workflows/out/silent-failure-hunt/findings-fallbacks.md"]
+        prompt: |
+          Read the workflow artifacts and inspect the real code. Hunt for
+          null/empty/default values returned on failure, optional chaining that
+          skips required work, mock or stale data used outside tests, fallback
+          chains that change semantics, and cache/config defaults that turn an
+          outage into plausible but wrong output. A documented optional case is
+          not a failure. Give file:line, trigger, masked fact, user impact, and
+          provisional confidence 0-100. Write
+          .workflows/out/silent-failure-hunt/findings-fallbacks.md.
+      - name: Feedback Auditor
+        describes: actionable user and operator signals
+        artifacts: [".workflows/out/silent-failure-hunt/findings-feedback.md"]
+        prompt: |
+          Read the workflow artifacts and actual UI/API/CLI boundary. Check that
+          failures reach the right audience with the failed operation, useful
+          identifiers, preserved cause, and a next step, without exposing
+          secrets. Flag success messages after partial failure, generic errors
+          where the code knows more, wrong severity, and logs nobody can
+          correlate. Do not invent logging requirements absent from this repo.
+          Give file:line, trigger, observed message/result, and provisional
+          confidence 0-100. Write
+          .workflows/out/silent-failure-hunt/findings-feedback.md.
+
+  review:
+    agent:
+      name: Reachability Skeptic
+      describes: prove each failure can happen
+      artifacts: [".workflows/out/silent-failure-hunt/verified.md"]
+      prompt: |
+        Read all three findings files in
+        .workflows/out/silent-failure-hunt/ and try to refute every candidate
+        against the real code. Follow the concrete input from entry point to handler.
+        Check upstream validation, caller recovery, transactions/finally blocks,
+        framework behavior, tests, and explicit product requirements. Discard
+        stylistic preferences, optional best-effort behavior, pre-existing
+        unreachable code, and anything below 80 confidence after verification.
+
+        Write .workflows/out/silent-failure-hunt/verified.md with survivors only:
+        severity, confidence, file:line, reproducible failure path, hidden fact,
+        user impact, and the smallest safe correction. List refuted candidates
+        briefly at the end.
+
+  report:
+    agent:
+      name: Failure Reporter
+      describes: high-confidence error-handling report
+      artifacts: [".workflows/out/silent-failure-hunt/report.md"]
+      prompt: |
+        Read .workflows/out/silent-failure-hunt/verified.md and map.md. Write
+        .workflows/out/silent-failure-hunt/report.md with scope and coverage,
+        confirmed issues ranked by severity, and a concise recommended fix for
+        each. Preserve confidence and file:line evidence. If no issue survived,
+        say the changed failure paths passed review and name the categories
+        checked. Do not edit source files.

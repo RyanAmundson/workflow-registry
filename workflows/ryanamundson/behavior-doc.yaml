@@ -1,0 +1,197 @@
+# Behavior doc — trace one feature, the undocumented features, or the whole
+# product and write down what it actually does.
+#
+# Source: the documentation-from-code pattern in "How Anthropic teams use
+# Claude Code" (claude.com/blog/how-anthropic-teams-use-claude-code) and the
+# doc-generation entries in the 2026 workflow roundups. The rule that makes
+# the output trustworthy: behavior is read from the code, never from existing
+# docs or comments (those drift — that is what Doc Sync exists to catch),
+# every claim carries a file:line citation so it can be checked, and a fresh
+# reviewer fact-checks the claims before anything is assembled.
+#
+# Behavior that looks unintended goes in a "Surprising behavior" section
+# instead of being silently normalized — documenting a feature is how latent
+# bugs get found, and the doc must not launder them into spec.
+
+name: Behavior Doc
+description: Trace one feature, every undocumented feature, or the whole product and write an evidence-backed document describing how it actually behaves.
+tags: [docs, audit, report-only, behavior]
+trigger: manual
+estimate: ~12m for one · longer for all
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Traces repository code and returns documentation changes without requiring a deployed environment.
+  requires: [repository, shell]
+  result: patch
+
+inputs:
+  coverage: One feature
+  feature: ""
+  out: docs/behavior
+
+params:
+  - key: coverage
+    label: What should be documented?
+    type: select
+    options: [One feature, Undocumented features, All features]
+    required: true
+  - key: feature
+    label: Feature to document
+    placeholder: Name the feature and briefly describe its purpose
+    required: true
+    when:
+      key: coverage
+      equals: One feature
+  - key: out
+    label: Output directory
+    placeholder: docs/behavior (default)
+
+phases:
+  context:
+    agent:
+      name: Tracer
+      describes: locate the feature's code
+      artifacts: [".workflows/out/behavior-doc/map.md"]
+      prompt: |
+        Trace where this feature lives in the code. Do not change any files,
+        and do not read existing docs for answers — the code is the source of
+        truth here.
+
+        Coverage: {{ coverage }}
+        Feature (used only for `One feature`): {{ feature }}
+        Behavior docs directory: {{ out }}
+
+        If coverage is `One feature`, trace the named feature. If coverage is
+        `Undocumented features`, inventory every coherent user-facing or
+        API-facing product capability, inspect existing repository docs only
+        far enough to determine which features already have substantive
+        behavior documentation, and trace only those without it. Do not treat
+        existing docs as evidence for how a feature behaves. If coverage is
+        `All features`, inventory and trace every coherent product capability.
+        A source file, helper, or presentational component is not a separate
+        feature unless it exposes behavior of its own.
+
+        For every feature in scope, find the entry points (routes, commands,
+        handlers, UI events), follow the flow through the modules involved, and
+        note the state it reads and writes, the external services it touches,
+        and the config or flags that change its behavior.
+
+        Write .workflows/out/behavior-doc/map.md with the Write tool (it
+        creates the directory), organized by feature: the flow step by step,
+        each step with file:line. You must write this file.
+
+  plan:
+    agent:
+      name: Outliner
+      describes: what the doc must pin down
+      artifacts: [".workflows/out/behavior-doc/outline.md"]
+      prompt: |
+        Read .workflows/out/behavior-doc/map.md. Coverage is {{ coverage }}.
+        Outline the behavior doc for every mapped feature: which happy paths
+        exist, which inputs and states change the outcome, which edge cases the
+        code visibly handles, and what happens on each failure (bad input,
+        missing state, a dependency that errors). For either multi-feature
+        coverage mode, give every feature its own section. Note per section
+        which files the documenter must read. Do not change any files.
+
+        Write .workflows/out/behavior-doc/outline.md with the Write tool. You
+        must write this file.
+
+  execute:
+    fanout:
+      - name: Core Behavior
+        describes: happy paths, step by step
+        artifacts: [".workflows/out/behavior-doc/part-core.md"]
+        prompt: |
+          Read .workflows/out/behavior-doc/map.md and outline.md, then read
+          the code and document the happy paths of every feature in scope
+          ({{ coverage }}): for each, what the user or caller does, what the
+          system does in response, and what the observable result is. Organize
+          the result by feature. State behavior as fact read from the code,
+          with a file:line citation on every claim. Where code and a comment
+          disagree, document the code and flag the comment.
+
+          Write .workflows/out/behavior-doc/part-core.md with the Write tool.
+          Do not change any source files. You must write this file.
+      - name: Edges and Limits
+        describes: boundaries the code handles
+        artifacts: [".workflows/out/behavior-doc/part-edges.md"]
+        prompt: |
+          Read .workflows/out/behavior-doc/map.md and outline.md, then read
+          the code and document the edge behavior of every feature in scope
+          ({{ coverage }}): empty and maximum inputs, concurrent or repeated
+          invocations, permission and state boundaries, defaults when config
+          is absent, and any limit or cap the code enforces. Organize the
+          result by feature. Every claim gets a file:line citation. Anything
+          that looks unintended goes under a `Surprising` heading — describe
+          it, do not judge it.
+
+          Write .workflows/out/behavior-doc/part-edges.md with the Write tool.
+          Do not change any source files. You must write this file.
+      - name: Failure Behavior
+        describes: what breaking it looks like
+        artifacts: [".workflows/out/behavior-doc/part-failures.md"]
+        prompt: |
+          Read .workflows/out/behavior-doc/map.md and outline.md, then read
+          the code and document how every feature in scope ({{ coverage }})
+          fails: for each error path, what triggers it, what the user or caller
+          observes (message, status, silence), what state is left behind, and
+          whether anything retries or recovers. Organize the result by feature.
+          Every claim gets a file:line citation. Swallowed errors and silent
+          fallbacks go under a `Surprising` heading.
+
+          Write .workflows/out/behavior-doc/part-failures.md with the Write
+          tool. Do not change any source files. You must write this file.
+
+  review:
+    agent:
+      name: Fact Check
+      describes: every claim against the code
+      artifacts: [".workflows/out/behavior-doc/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read the three part files in
+        .workflows/out/behavior-doc/ (part-core.md, part-edges.md,
+        part-failures.md) and check their claims against the code: open each
+        cited file:line and confirm the code does what the claim says. Reject
+        claims with no citation, citations that do not support the claim, and
+        behavior copied from comments or docs rather than code. Note real
+        behaviors the parts missed.
+
+        Write .workflows/out/behavior-doc/review.md with the Write tool: first
+        line `VERDICT: pass` or `VERDICT: fail` (fail means too wrong to
+        assemble), then each correction with the claim, what the code actually
+        does, and file:line. You must write this file.
+
+  report:
+    agent:
+      name: Assembler
+      describes: the finished behavior doc
+      permissions: full
+      artifacts: [".workflows/out/behavior-doc/behavior.md"]
+      prompt: |
+        Read the three part files and review.md in .workflows/out/behavior-doc/.
+        If the verdict is fail, write .workflows/out/behavior-doc/behavior.md
+        explaining what went wrong and stop — commit nothing.
+
+        Otherwise assemble the corrected parts into one behavior doc. For `One
+        feature`, describe what the feature is in two sentences, its happy
+        paths, edges and limits, failure behavior, and a final `Surprising
+        behavior` section. For `Undocumented features` or `All features`, start
+        with the in-scope feature inventory, then give every feature those same
+        subsections and finish with one cross-feature `Surprising behavior`
+        section. Keep the file:line citations — they are what makes the doc
+        checkable. Apply review.md's corrections; where the reviewer and a part
+        disagree, the reviewer wins.
+
+        Write the doc to .workflows/out/behavior-doc/behavior.md with the
+        Write tool. If coverage is `One feature`, copy it to
+        {{ out }}/<feature-slug>.md in the repo (slug from the feature name,
+        lowercase, hyphenated). If coverage is `Undocumented features`, copy it
+        to {{ out }}/undocumented-features.md. If coverage is `All features`,
+        copy it to {{ out }}/all-features.md. Commit only that one docs file
+        with a message naming the documented scope. Never push; the operator
+        decides what leaves this machine. You must write behavior.md in every
+        case.

@@ -1,0 +1,125 @@
+# Dead code sweep — prove it is unused, then delete it.
+#
+# Source: the cleanup workflow the community converged on for Claude Code
+# (claudecn.com/en/docs/claude-code/workflows/refactor-clean/, the
+# awesome-claude-code-toolkit cleanup command, and every 2026 audit roundup).
+# Its operating rules, kept here verbatim in spirit: "unused" must be proven
+# with evidence, not asserted; delete in small batches; verify with the build
+# and tests after every batch; keep a deletion log. Deleting dead code is also
+# the first step in the community's recommended fix order — it shrinks every
+# later audit.
+
+name: Dead Code Sweep
+description: Prove code is unused, remove only the safe candidates, verify the repository, and report every decision.
+tags: [cleanup, repairs, quality]
+trigger: manual
+estimate: ~12m
+model: claude-sonnet-5
+permissions: edits
+
+cloud:
+  compatible: true
+  reason: Repository-only cleanup with build and test verification; private integration tests must be excluded.
+  requires: [repository, shell, tests]
+  result: patch
+
+inputs:
+  scope: src
+
+params:
+  - key: scope
+    label: Code scope
+    placeholder: src (default)
+
+phases:
+  context:
+    agent:
+      name: Mapper
+      describes: candidate inventory
+      permissions: full
+      artifacts: [".workflows/out/dead-code-sweep/candidates.md"]
+      prompt: |
+        Inventory dead-code candidates under {{ scope }}: exports nothing
+        imports, files nothing references, branches that cannot execute, and
+        commented-out blocks. If this repo has an evidence tool available (for
+        example knip, ts-prune, depcheck, vulture, or an unused-variable
+        linter), run it and record its output; otherwise build the evidence by
+        tracing imports and references yourself. Do not delete anything yet.
+
+        Write .workflows/out/dead-code-sweep/candidates.md with the Write tool
+        (it creates the directory): each candidate with file:line and the
+        evidence that flagged it. You must write this file even if you find
+        nothing.
+
+  plan:
+    agent:
+      name: Prover
+      describes: prove or drop each candidate
+      artifacts: [".workflows/out/dead-code-sweep/kill-list.md"]
+      prompt: |
+        Read .workflows/out/dead-code-sweep/candidates.md. For each candidate,
+        prove it is genuinely unreferenced before it may be deleted: search for
+        dynamic references the tools miss — string-built imports, config and
+        manifest entries (main, bin, exports fields), re-exports, reflection,
+        test fixtures, and documentation that names it as public API. A
+        candidate you cannot prove stays out. Do not change any files.
+
+        Write .workflows/out/dead-code-sweep/kill-list.md with the Write tool:
+        the proven deletions grouped into small batches, each with its proof in
+        one line, and a section listing the candidates you dropped with the
+        reference that saved them. You must write this file.
+
+  execute:
+    agent:
+      name: Deleter
+      describes: delete in batches, verify each
+      permissions: full
+      artifacts: [".workflows/out/dead-code-sweep/deletion-log.md"]
+      prompt: |
+        Work through .workflows/out/dead-code-sweep/kill-list.md batch by
+        batch. After each batch, run the repo's build, type-check, and test
+        commands; if anything breaks, restore that batch exactly and record why
+        the proof was wrong. Delete only what the kill-list proves — nothing
+        you notice along the way. Deletion only: do not rewrite or "improve"
+        surviving code.
+
+        Write .workflows/out/dead-code-sweep/deletion-log.md with the Write
+        tool: each batch, what was removed, the verification commands run with
+        their results, and any batch you restored with the reason. You must
+        write this file even if every batch was restored.
+
+  review:
+    agent:
+      name: Checker
+      describes: only deletions, still green
+      permissions: full
+      artifacts: [".workflows/out/dead-code-sweep/review.md"]
+      prompt: |
+        You are a fresh reviewer. Read .workflows/out/dead-code-sweep/
+        kill-list.md and deletion-log.md, then run `git diff` and verify the
+        diff contains deletions only — no behavior edits smuggled in. Re-run
+        the build, type-check, and tests yourself; do not trust the log.
+        Spot-check the three largest deletions by searching the repo for any
+        remaining reference to what they removed.
+
+        Write .workflows/out/dead-code-sweep/review.md with the Write tool:
+        first line `VERDICT: pass` or `VERDICT: fail`, then the evidence and
+        any problem with file:line. You must write this file.
+
+  report:
+    agent:
+      name: Committer
+      describes: commit the shrinkage
+      permissions: full
+      artifacts: [".workflows/out/dead-code-sweep/report.md"]
+      prompt: |
+        Read .workflows/out/dead-code-sweep/review.md and deletion-log.md. On
+        `VERDICT: pass` with at least one deletion, commit with a message
+        summarizing what was removed and the line-count change. Never push; the
+        operator decides what leaves this machine. On `VERDICT: fail` or an
+        empty sweep, commit nothing.
+
+        Write .workflows/out/dead-code-sweep/report.md with the Write tool:
+        lines and files removed, candidates dropped for lack of proof, the
+        commit hash if any, and what a future sweep should look at. You must
+        write this file in every case.

@@ -23,11 +23,12 @@ system, a security-rules rewrite, and read quota, to arrive at weaker review.
 ```
 index.json                       generated; what a console reads to list and search
 workflows/<owner>/<name>.yaml    the definitions
+workflows/<owner>/<name>/<sha>.yaml  every immutable published version
 ```
 
 `index.json` carries each workflow's name, description, tags, trigger, estimate,
-permissions, declared params, cloud spec, and content hash — enough to browse and
-filter without fetching every definition.
+permissions, declared params, cloud spec, and complete version list — enough to
+browse, filter, and choose an exact version without fetching every definition.
 
 ## Versions are content hashes
 

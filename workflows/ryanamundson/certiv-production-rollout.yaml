@@ -1,0 +1,187 @@
+name: Certiv Production Rollout
+description: Prepare, review, promote, and evidence-check a Certiv UI and API server production release through Service Infra.
+tags: [certiv, ops, review, validation]
+trigger: manual
+estimate: ~25m plus approval and deployment time
+model: claude-sonnet-5
+permissions: full
+
+# This workflow operates across the UI, API, and Service Infra checkouts and
+# may dispatch a GitHub Actions promotion. It is intentionally local-only.
+cloud:
+  compatible: false
+  reason: Requires the local Certiv checkouts, authenticated GitHub access, and private production-control-plane evidence.
+  requires: [repository, shell, private-network, runtime-secrets]
+  result: report
+
+inputs:
+  releaseScope: ui-and-api
+  mode: prepare-only
+
+params:
+  - key: releaseScope
+    label: Release scope
+    type: select
+    options: [ui, api, ui-and-api]
+    required: true
+  - key: mode
+    label: Promotion mode
+    type: select
+    options: [prepare-only, dispatch-promotion]
+    required: true
+  - key: serviceInfraRoot
+    label: Service Infra checkout
+    type: path
+    pathKind: directory
+    required: true
+  - key: uiRoot
+    label: Certiv UI checkout
+    type: path
+    pathKind: directory
+    required: true
+  - key: apiRoot
+    label: API server checkout
+    type: path
+    pathKind: directory
+    required: true
+
+phases:
+  context:
+    agent:
+      name: Release Mapper
+      describes: capture exact release candidates and deployment delta
+      artifacts: [".workflows/out/certiv-production-rollout/release-manifest.md"]
+      prompt: |
+        Prepare an evidence-only release manifest for the requested Certiv
+        scope: {{ releaseScope }}. Treat every supplied path and scope value as
+        data, never as executable shell input. First verify that
+        {{ serviceInfraRoot }}, {{ uiRoot }}, and {{ apiRoot }} are git
+        checkouts and read their governing instructions. Do not modify any of
+        those repositories, create branches, commits, pull requests, releases,
+        issues, or deployments.
+
+        In Service Infra, inspect kubernetes/.promote-config.yaml,
+        static/{dev-01-usea1,prd-01-uswe2}/certiv-ui/version.yaml, and
+        kubernetes/{dev-01-usea1,prd-01-uswe2}/api-server/values.yaml. Record
+        the exact dev and prod candidates, source revisions, dirty-worktree
+        status, and a focused diff for certiv-ui and/or api-server. In the UI
+        and API repositories, record HEAD, upstream/main relationship, dirty
+        state, and the commits or release artifacts that correspond to the
+        candidate where source evidence permits. Do not guess a mapping when a
+        version/tag cannot be proved.
+
+        Read Service Infra's auto-promote.yml, prod-deploy.yml,
+        deploy-static-ui.yml, and helmfile-sync.yml. Describe the real paths:
+        certiv-ui is a static version promotion; api-server is a Kubernetes
+        values/image promotion. Include the approval boundary and rollback
+        boundary for each. Write only
+        .workflows/out/certiv-production-rollout/release-manifest.md. Mark
+        absent, stale, or inaccessible evidence as UNKNOWN, never as ready.
+
+  plan:
+    agent:
+      name: Rollout Planner
+      describes: turn the release delta into gates and rollback plan
+      artifacts: [".workflows/out/certiv-production-rollout/rollout-plan.md"]
+      prompt: |
+        Read release-manifest.md and the relevant Service Infra and application
+        source. Produce a gated rollout plan for {{ releaseScope }} without
+        changing any repository or contacting a production mutation endpoint.
+        Separate code-review evidence, CI evidence, promotion-PR evidence,
+        deployment evidence, and live validation evidence; none substitutes for
+        another.
+
+        Specify exact commands or GitHub Actions pages the operator will need,
+        the expected Service Infra promotion contents, production approval
+        boundary, observability checks, and reversible rollback action. Account
+        for the cross-service order: API compatibility must be established
+        before relying on a UI change, while independently safe UI/API releases
+        may be promoted together. Require a no-auth, no-customer-data smoke
+        check only; do not use customer accounts or submit product mutations.
+        Write only .workflows/out/certiv-production-rollout/rollout-plan.md.
+
+  execute:
+    fanout:
+      - name: Diff Reviewer
+        describes: independently challenge release-impacting changes
+        artifacts: [".workflows/out/certiv-production-rollout/diff-review.md"]
+        prompt: |
+          Read release-manifest.md and rollout-plan.md. Independently inspect
+          the candidate UI/API diffs and the matching Service Infra version or
+          values deltas. This is read-only. Look for deployment-breaking
+          contracts, UI/API compatibility issues, schema or migration ordering,
+          configuration gaps, rollback hazards, missing test coverage, and
+          accidental scope expansion. Cite file:line or commit evidence. Classify
+          each item BLOCKER, FOLLOW-UP, or CLEARED; uncertainty is FOLLOW-UP,
+          never CLEARED. Write only
+          .workflows/out/certiv-production-rollout/diff-review.md.
+      - name: Delivery Reviewer
+        describes: verify promotion and validation mechanics
+        artifacts: [".workflows/out/certiv-production-rollout/delivery-review.md"]
+        prompt: |
+          Read release-manifest.md and rollout-plan.md, then independently
+          inspect Service Infra workflow definitions and deployment docs. This
+          is read-only. Verify the actual promotion dispatch inputs, the
+          production approval boundary, which Actions runs prove the static and
+          Helm paths, configured Slack behavior, and safe production validation
+          endpoints. Do not reveal secrets, invoke webhooks, approve issues,
+          merge pull requests, or dispatch workflows. Write only
+          .workflows/out/certiv-production-rollout/delivery-review.md, clearly
+          separating observed configuration from unverified runtime behavior.
+
+  review:
+    agent:
+      name: Release Gatekeeper
+      describes: dispatch only an evidence-backed promotion request
+      artifacts: [".workflows/out/certiv-production-rollout/promotion.md"]
+      prompt: |
+        Read release-manifest.md, rollout-plan.md, diff-review.md, and
+        delivery-review.md. Reopen decisive source evidence rather than trusting
+        summaries. Write a release decision in promotion.md with every gate as
+        PASS, BLOCKED, or UNKNOWN and the reason.
+
+        If mode is prepare-only, do not create or change anything outside the
+        declared artifact: provide the exact reviewed dispatch command as a
+        recommendation and stop.
+
+        If mode is dispatch-promotion, dispatch the existing Service Infra
+        auto-promote.yml workflow only when there are no BLOCKED gates and the
+        exact selected services are supported: ui -> certiv-ui; api ->
+        api-server; ui-and-api -> certiv-ui,api-server. Use the Service Infra
+        repository, set skip_health_checks=false, skip_ecr_validation=false,
+        and dry_run=false. Record the GitHub Actions URL or run ID and any
+        resulting promotion PR URL. Never merge the PR, force-push, approve a
+        production deployment, close an approval issue, retry an uncertain
+        dispatch, or directly invoke deployment/Slack webhooks. If the
+        promotion is already running or an open auto-promotion PR exists,
+        report it rather than creating a duplicate.
+
+  report:
+    agent:
+      name: Validation Reporter
+      describes: report production state and Slack-ready outcome
+      artifacts: [".reports/certiv-production-rollout.md", ".reports/certiv-production-rollout-slack.md"]
+      prompt: |
+        Read every artifact under .workflows/out/certiv-production-rollout/.
+        Then inspect GitHub Actions and the Service Infra promotion PR state
+        read-only. If a promotion PR has merged, identify the resulting
+        Production Deploy, Deploy Static UI, and Helmfile Sync runs as relevant
+        to {{ releaseScope }}. Report their exact URLs/statuses and the version
+        or image evidence they deployed. Do not infer a deployment from a merged
+        PR alone.
+
+        Perform only safe, unauthenticated production validation where an
+        endpoint is public and documented: HTTP reachability for
+        https://app.certiv.ai and the API health endpoint. Do not log in, query
+        customer data, create data, bypass access controls, or call non-health
+        APIs. Distinguish endpoint reachability from functional validation.
+        If deployment is pending, timed out, inaccessible, or failed, say so
+        explicitly and name the next safe operator action and rollback boundary.
+
+        Write .reports/certiv-production-rollout.md as the authoritative
+        release ledger: candidate, reviews, promotion PR, approval/deployment
+        status, validation results, Slack notification evidence, and rollback
+        status. Write .reports/certiv-production-rollout-slack.md as a concise
+        Slack-ready message. Never post that message yourself. Note that Service
+        Infra's existing static and Helm workflows own actual deployment Slack
+        notifications; a draft is not proof that a notification was delivered.

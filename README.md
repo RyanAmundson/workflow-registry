@@ -10,10 +10,9 @@ copy that machine happened to have on disk.
 ## Why a Git repository
 
 A registry is a versioned, addressable, permanent collection of text, and Git is
-already that. Git also supplies the thing that matters most here: **review before
-anyone runs it.** A workflow instructs an agent that may hold write access to a
-checkout, so a human reading the prompt is the correct gate, and a pull request is
-that gate.
+already that. Its history preserves the exact definitions published to the
+registry. Validate generated definitions before publishing; workflows can instruct
+agents with write access to a checkout.
 
 The alternative considered was a multi-tenant database. It needed an identity
 system, a security-rules rewrite, and read quota, to arrive at weaker review.
@@ -50,8 +49,9 @@ Definitions are generated, not hand-edited here. From a Workflow Console checkou
 workflow-console registry build <owner> <path-to-this-repo>
 ```
 
-Then open a pull request. Regenerating is idempotent: entries are sorted, so a
-rebuild diffs cleanly and one real change is not buried in reordering.
+Follow the direct-to-main delivery policy in [AGENTS.md](AGENTS.md).
+Regenerating is idempotent: entries are sorted, so a rebuild diffs cleanly and
+one real change is not buried in reordering.
 
 Two classes of workflow are refused at build time rather than published broken:
 

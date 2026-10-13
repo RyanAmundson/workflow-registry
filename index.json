@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1791927169273,
+  "generatedAt": 1791933414582,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -1823,7 +1823,7 @@
     {
       "id": "cm-plugin-quality",
       "name": "Context Manager Plugin Quality",
-      "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
+      "description": "Account for all 79 canonical plugin requirements with reviewed pinned source decisions and complete-clause candidate validation or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
       "tags": [
         "context-manager",
         "plugins",
@@ -1832,8 +1832,8 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee",
-      "latestBytes": 12399,
+      "latestVersion": "0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78",
+      "latestBytes": 13431,
       "trigger": "manual",
       "estimate": "~15–25m",
       "enabled": true,
@@ -1868,10 +1868,66 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791927169273,
+      "updatedAt": 1791933414582,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml",
       "versions": [
+        {
+          "id": "0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78",
+          "bytes": 13431,
+          "publishedAt": 1791933414582,
+          "path": "workflows/ryanamundson/cm-plugin-quality/0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78.yaml",
+          "workflow": {
+            "id": "cm-plugin-quality",
+            "name": "Context Manager Plugin Quality",
+            "description": "Account for all 79 canonical plugin requirements with reviewed pinned source decisions and complete-clause candidate validation or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
+            "tags": [
+              "context-manager",
+              "plugins",
+              "quality",
+              "audit",
+              "report-only"
+            ],
+            "format": "workflow-yaml-v1",
+            "latestVersion": "0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78",
+            "latestBytes": 13431,
+            "trigger": "manual",
+            "estimate": "~15–25m",
+            "enabled": true,
+            "permissions": "edits",
+            "model": "claude-sonnet-5",
+            "params": [
+              {
+                "key": "targets",
+                "label": "Plugin ids",
+                "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+              },
+              {
+                "key": "mode",
+                "label": "Verification mode",
+                "type": "select",
+                "options": [
+                  "static"
+                ]
+              }
+            ],
+            "inputs": {
+              "targets": "all",
+              "mode": "static"
+            },
+            "cloud": {
+              "compatible": false,
+              "reason": "Requires installed bundled report helpers on the host; source review never runs repository gates.",
+              "requires": [
+                "repository",
+                "shell",
+                "host-files"
+              ],
+              "result": "report"
+            },
+            "updatedAt": 1791933414582
+          }
+        },
         {
           "id": "c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee",
           "bytes": 12399,

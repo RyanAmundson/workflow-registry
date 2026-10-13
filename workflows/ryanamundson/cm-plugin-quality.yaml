@@ -1,5 +1,5 @@
 name: Context Manager Plugin Quality
-description: Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.
+description: Account for all 79 canonical plugin requirements with reviewed pinned source decisions and complete-clause candidate validation or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.
 tags: [context-manager, plugins, quality, audit, report-only]
 trigger: manual
 estimate: ~15–25m
@@ -55,7 +55,9 @@ phases:
 
         Check the source prerequisites and contract sources in full using file tools.
         Write inventory-review.json carrying exactly the trusted runId/sourceRevision,
-        status, observations, and named gaps. Never edit inventory.json or README.md.
+        status, catalogCount: inventory.catalog.length, observations, and named gaps.
+        The canonical requirement count is 79, not the plugin catalog count.
+        Never edit inventory.json or README.md.
         Selected targets: {{ targets }}; mode: {{ mode }}.
 
   execute:
@@ -102,9 +104,9 @@ phases:
         for all six domains as the rubric defines them. For boundary, compare
         every import against the SDK vocabulary and the two grandfathered sets in
         scripts/plugin-security-lint.ts; a grandfathered edge is verified debt.
-        For lifecycle, locate each of the five required fixtures by test title
-        or assertion and cite it; a fixture you cannot locate is missing, not
-        unknown. For ui, cite the PanelLayout root and the state primitives.
+        For lifecycle, record the complete searched fixture scope. A case not
+        located in two local tests is not proof of exhaustive host/renderer absence.
+        Optional dependency absence is N/A. Fixture existence is not execution. For ui, cite the PanelLayout root and the state primitives.
         For data, cite each collection's writeCycle and schemaParity. For
         verification, resolve every behavior testRef to a file; execution remains
         skipped and must not be claimed passing. Candidate findings carry root cause, occurrence
@@ -128,7 +130,7 @@ phases:
       name: Plugin Grader
       describes: independently review exact canonical row evidence while keeping skipped domains ungraded
       artifacts:
-        - ".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/assessment.json"
+        - ".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/assessment-proposed.json"
       prompt: |
         D=.workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/.
         Read D/inventory.json, D/evidence.json, and D/README.md.
@@ -142,7 +144,16 @@ phases:
         not execute tests. These restrictions apply to every model phase.
         Contract audit execution is forbidden; do not read or reuse an older
         contract-audit.json. Audit-only proof is unavailable in this workflow.
-        First create assessment.json canonicalLedger:
+        The trusted finalizer validates and adjudicates the proposal; models cannot
+        mint trusted semantic receipts. Unreviewed model PASS, N/A, and FAIL are
+        retained as candidates only and remain UNVERIFIED. No candidate overrides
+        a fully pinned reviewed pack decision. Follow README complete-clause proofContract
+        for source judgments: pinned full scope, exact conditional clauses, typed
+        file/hash/line/excerpt proof and complete negative inventory for N/A.
+        Observable behavior cannot PASS without a trusted executed current-run
+        receipt; this source-only run supplies none. Source fixtures alone are
+        UNVERIFIED. Known counterexamples are FAIL even if another clause passes.
+        First create assessment-proposed.json canonicalLedger:
         {checklistRevision, plugins: [{id, rows: [{id, status, evidence, reason}]}]}.
         Include every selected plugin and every exact canonical ID once, no extras.
         status is only PASS, FAIL, N/A, or UNVERIFIED. PASS/FAIL require proof
@@ -161,7 +172,7 @@ phases:
         on canonicalLedger. Recheck sourceRevision before review: source drift
         blocks grading and proof reuse. Honor CANON over older enforcement wording.
 
-        Always write assessment.json with version 1, status ungraded, grade null,
+        Always write assessment-proposed.json with version 1, status ungraded, grade null,
         current runId, sourceRevision, scannedAt, and a named reason stating that
         contract audit is skipped by Context Manager policy. Retain canonicalLedger
         even when audit grading is unavailable. Every selected plugin has all six
@@ -170,7 +181,7 @@ phases:
         UNVERIFIED. Run/revision mismatch blocks proof reuse. No model executes a
         grading or rendering command; the following deterministic steps own those.
 
-        Write assessment.json in the exact README contract: every selected plugin,
+        Write assessment-proposed.json in the exact README contract: every selected plugin,
         all six checks with unknown status, evidence arrays, and named reasons,
         source candidate findings retained separately, and coverageGaps carrying every unresolved target,
         environment gap, skipped test run, and unverified source identity forward.

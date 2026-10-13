@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1791425606936,
+  "generatedAt": 1791873897611,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -1832,8 +1832,8 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "1355819f159be8baf4474a8008762356500c01bc3b5f1c5b99d945894617c92d",
-      "latestBytes": 11383,
+      "latestVersion": "bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73",
+      "latestBytes": 11971,
       "trigger": "manual",
       "estimate": "~15–25m",
       "enabled": true,
@@ -1870,10 +1870,68 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791873897611,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml",
       "versions": [
+        {
+          "id": "bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73",
+          "bytes": 11971,
+          "publishedAt": 1791873897611,
+          "path": "workflows/ryanamundson/cm-plugin-quality/bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73.yaml",
+          "workflow": {
+            "id": "cm-plugin-quality",
+            "name": "Context Manager Plugin Quality",
+            "description": "Grade every bundled Context Manager plugin against the plugin contract the host requires — identity, ingress and egress boundary, lifecycle, panel UI, data ownership, and verification — using the checkout's own contract audit for every contract fact, and issue evidence-backed A–F letter grades.",
+            "tags": [
+              "context-manager",
+              "plugins",
+              "quality",
+              "audit",
+              "report-only"
+            ],
+            "format": "workflow-yaml-v1",
+            "latestVersion": "bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73",
+            "latestBytes": 11971,
+            "trigger": "manual",
+            "estimate": "~15–25m",
+            "enabled": true,
+            "permissions": "full",
+            "model": "claude-sonnet-5",
+            "params": [
+              {
+                "key": "targets",
+                "label": "Plugin ids",
+                "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+              },
+              {
+                "key": "mode",
+                "label": "Verification mode",
+                "type": "select",
+                "options": [
+                  "static",
+                  "tests"
+                ]
+              }
+            ],
+            "inputs": {
+              "targets": "all",
+              "mode": "static"
+            },
+            "cloud": {
+              "compatible": false,
+              "reason": "Runs the checkout's own contract audit, its lints, and the bundled grading helper on the host.",
+              "requires": [
+                "repository",
+                "shell",
+                "tests",
+                "host-files"
+              ],
+              "result": "report"
+            },
+            "updatedAt": 1791873897611
+          }
+        },
         {
           "id": "1355819f159be8baf4474a8008762356500c01bc3b5f1c5b99d945894617c92d",
           "bytes": 11383,

@@ -1,5 +1,5 @@
 name: Context Manager Plugin Quality
-description: Grade every bundled Context Manager plugin against the plugin contract the host requires — identity, ingress and egress boundary, lifecycle, panel UI, data ownership, and verification — using the checkout's own contract audit for every contract fact, and issue evidence-backed A–F letter grades.
+description: Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and its evidence-backed A–F grades.
 tags: [context-manager, plugins, quality, audit, report-only]
 trigger: manual
 estimate: ~15–25m
@@ -40,10 +40,12 @@ phases:
         Keep that identity in blocked artifacts. Never reuse an earlier run's data.
         Read the bundled rubric at ${WC_BUNDLED_SCRIPTS}/cm-plugin/README.md. If it
         is unavailable, write inventory.json with status blocked and the reason,
-        then stop. This workflow grades a Context Manager checkout. Confirm
+        then preserve canonical source snapshots and available catalog scope
+        before stopping. This workflow grades a Context Manager checkout. Confirm
         electron/plugins/catalog.ts, scripts/plugin-contract-audit.ts, and
         docs/architecture/plugin-security.md exist at the repository root; if any
-        is missing, write a blocked inventory naming the missing file and stop.
+        is missing, write a blocked inventory naming the missing file, preserving
+        canonical snapshots and available catalog scope before stopping.
 
         Record runId (unique), scannedAt (ISO now), and sourceRevision: the HEAD
         commit plus a content digest of dirty tracked files. Parse the catalog
@@ -54,9 +56,23 @@ phases:
         directories under electron/plugins/ and src/[plugins]/ that the catalog
         does not select as unselected; they are inventory notes, not graded.
 
+        Read docs/plugin-quality-checklist.md and electron/plugins/compliance/checklist.ts
+        in full. They are the canonical general-compliance requirements, separate
+        from the six-domain grading rubric. Archive them in inventory.json as
+        canonicalChecklist: {sourceRevision, revision, document: {path, content},
+        machine: {path, content}}. Preserve both complete UTF-8 source strings;
+        revision is the machine CHECKLIST_REVISION. Parse the document's PQ-ID
+        table rows and machine CHECKLIST_ROWS: require the same exact 79 unique IDs
+        and SHA-256 of document `<id>\t<check>` lines joined by newlines equal to
+        CHECKLIST_REVISION. A missing source or mismatch blocks compliance; name
+        it, preserve the available source snapshots, and never substitute a cached
+        checklist or silently count six domains as 79 requirements. Snapshot the
+        canonical sources even if another prerequisite blocks this run.
+
         Read the contract sources named in the rubric and record each path with
         its last-verified date or HEAD commit as this run's contract version:
-        docs/architecture/plugin-security.md, DESIGN.md Panel Content Contract,
+        docs/plugin-quality-checklist.md, electron/plugins/compliance/checklist.ts,
+        docs/CANON.md, docs/architecture/plugin-security.md, DESIGN.md Panel Content Contract,
         electron/plugins/types.ts, src/[plugins]/types/types.ts,
         electron/plugins/sdk/contracts.ts, scripts/plugin-contract-audit.ts, and
         scripts/plugin-security-lint.ts. Record tooling: whether node_modules and
@@ -66,7 +82,7 @@ phases:
         record that you did; it links the primary checkout's node_modules and is
         the setup Context Manager requires before any gate. Never run npm install.
         inventory.json contains runId, scannedAt, sourceRevision, status, inputs,
-        catalog, selected, unresolved, unselected, contractSources, tooling, and gaps.
+        catalog, selected, unresolved, unselected, canonicalChecklist, contractSources, tooling, and gaps.
 
   execute:
     agent:
@@ -90,7 +106,12 @@ phases:
         stdout unchanged as D/contract-audit.json and stderr with the exit code
         as D/contract-audit.log. A nonzero exit means a plugin is incomplete and
         is expected; output that is not a JSON array is a blocker. Never pass
-        --write. Run `npx tsx scripts/plugin-security-lint.ts` and
+        --write. Record evidence.json contractAudit: {runId, sourceRevision, path,
+        sha256, commandIndex}, where path is the archive's absolute path, sha256
+        hashes the unchanged stdout bytes, and commandIndex identifies its executed
+        command in evidence.commands (integer exitCode, never skipped). If skipped,
+        absent, or invalid, record the reason without fabricating a receipt.
+        Run `npx tsx scripts/plugin-security-lint.ts` and
         `npx tsx scripts/check-db-collection-contracts.ts`, saving output and
         exit codes under D/. Each nonzero exit is a finding lead to attribute to
         the plugin it names, or a repository-wide gap when it names none.
@@ -118,6 +139,14 @@ phases:
         verification, resolve every behavior testRef to a file and, in tests
         mode, to a passing run. Candidate findings carry root cause, occurrence
         count, severity rationale from the rubric caps, file:line, and remediation.
+        Read each canonical requirement independently. Record per-row proof with
+        kind (source, runtime, attestation, or audit), citation (file:line or current
+        run archive reference), and observation explaining the actual evidence.
+        Audit proof also names checkId. Existence of tests or stories does not prove
+        execution or rendered behavior; attested and judgment rows require an
+        explicit current-run review. Do not inherit canonical verdicts from a
+        six-domain score or treat a skipped check as N/A. In particular, an audit
+        types.strict N/A is not compiler proof for PQ-types.1.
         Write evidence.json with runId, sourceRevision, commands with exit codes,
         per-plugin per-domain observations, candidate findings, and gaps, even on
         partial execution. Never reuse artifacts from an earlier run.
@@ -131,10 +160,34 @@ phases:
         - ".workflow-console/workflows/out/cm-plugin-quality/grades.json"
       prompt: |
         Read inventory.json, contract-audit.json, evidence.json, and the bundled
-        rubric and helper. If any is blocked, runIds differ, contract-audit.json
+        rubric and helper. First create assessment.json canonicalLedger:
+        {checklistRevision, plugins: [{id, rows: [{id, status, evidence, reason}]}]}.
+        Include every selected plugin and every exact canonical ID once, no extras.
+        status is only PASS, FAIL, N/A, or UNVERIFIED. PASS/FAIL require proof
+        objects {kind, citation, observation}; audit proof also has checkId and
+        must agree with the current audit. N/A requires positive applicability
+        proof and a reason; an audit's inapplicable/skipped flag alone is insufficient.
+        Audit-only PASS requires all mapped applicable CHECKLIST_ROWS checks to
+        pass, all named mappings present, and at least one applicable check; '*'
+        expands to every applicable plugin check. FAIL requires a mapped applicable
+        failure. A check from another PQ row, missing/inapplicable-only checks,
+        and allowlisted or ratcheted gate results are not semantic row proof;
+        leave them UNVERIFIED without independent source/runtime/attestation proof.
+        Attested and judgment rows always require independent proof.
+        UNVERIFIED requires a reason and never implies failure or success. Recheck
+        all proof against the full canonical row text at sourceRevision. Do not
+        infer blanket verdicts from mapped checks, attestation defaults, or grades.
+        Preserve this ledger even when grading is blocked, with unsupported rows
+        explicitly UNVERIFIED. If the checklist itself is invalid, name the blocker.
+        Carry sourceRevision/runId on assessment and grades, and checklistRevision
+        on canonicalLedger. Recheck sourceRevision before review: source drift
+        blocks grading and proof reuse. Honor CANON over older enforcement wording.
+
+        If any is blocked, runIds differ, contract-audit.json
         is not a JSON array, or the helper is unavailable, write BOTH
         assessment.json and grades.json with status ungraded, grade null, the
-        current runId, sourceRevision, scannedAt, and the reason. Never claim a
+        current runId, sourceRevision, scannedAt, and the reason, retaining the
+        canonicalLedger on assessment. Never claim a
         computed grade in that path.
         Otherwise recheck every cited file:line and command output. Downgrade a
         claim its citation does not support to unknown; reject a finding without
@@ -171,13 +224,20 @@ phases:
         compliance-report.html template through report.mjs; never write a replacement
         template or invent a Markdown-only report. Run this command with argument
         arrays and literal paths, using the exported WC_BUNDLED_SCRIPTS directory:
-          node "$WC_BUNDLED_SCRIPTS/cm-plugin/report.mjs" .workflow-console/workflows/out/cm-plugin-quality/inventory.json .workflow-console/workflows/out/cm-plugin-quality/evidence.json .workflow-console/workflows/out/cm-plugin-quality/grades.json .workflow-console/workflows/out/cm-plugin-quality/compliance-report.html
+          node "$WC_BUNDLED_SCRIPTS/cm-plugin/report.mjs" .workflow-console/workflows/out/cm-plugin-quality/inventory.json .workflow-console/workflows/out/cm-plugin-quality/evidence.json .workflow-console/workflows/out/cm-plugin-quality/grades.json .workflow-console/workflows/out/cm-plugin-quality/assessment.json .workflow-console/workflows/out/cm-plugin-quality/contract-audit.json .workflow-console/workflows/out/cm-plugin-quality/compliance-report.html
 
         The renderer copies computed grades and shows exact run/source identity,
-        scope, six domains, findings, citations, commands, and coverage gaps. Missing,
+        scope, the exact canonical 79-ID ledger separately from the six domains,
+        findings, citations, commands, and coverage gaps. It validates both canonical
+        source snapshots and checklist revision, row coverage and proof, and the
+        current-run audit receipt. Raw assessment and unchanged raw audit are
+        embedded with inventory, evidence and grades; keep their archive references.
+        Missing,
         malformed, blocked, or mismatched inputs must produce a named blocked report
         without importing stale grades. A static audit does not prove live behavior.
-        Completion does not change certification. Never edit grades to improve them.
+        Certificate state/change is UNVERIFIED without validated before/after
+        snapshots; never claim the certificate stayed unchanged from renderer
+        behavior alone. Never edit grades to improve them.
         If the bundled renderer/template is missing or rendering fails, report the
         exact error as a failed report phase. Never claim that the compliance report
         exists from the runner's separate comprehensive run report alone. Publish

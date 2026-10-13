@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1791873897611,
+  "generatedAt": 1791919915837,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -45,7 +45,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/adversarial-review.yaml",
       "versions": [
@@ -232,7 +232,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-attack-surface-suite.yaml",
       "versions": [
@@ -481,7 +481,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-prompt-injection.yaml",
       "versions": [
@@ -694,7 +694,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-protection-audit.yaml",
       "versions": [
@@ -875,7 +875,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-protection-check.yaml",
       "versions": [
@@ -1072,7 +1072,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ai-tool-permissions.yaml",
       "versions": [
@@ -1269,7 +1269,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/backlog-burndown.yaml",
       "versions": [
@@ -1425,7 +1425,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/behavior-doc.yaml",
       "versions": [
@@ -1644,7 +1644,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/certiv-production-rollout.yaml",
       "versions": [
@@ -1823,7 +1823,7 @@
     {
       "id": "cm-plugin-quality",
       "name": "Context Manager Plugin Quality",
-      "description": "Grade every bundled Context Manager plugin against the plugin contract the host requires — identity, ingress and egress boundary, lifecycle, panel UI, data ownership, and verification — using the checkout's own contract audit for every contract fact, and issue evidence-backed A–F letter grades.",
+      "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and its evidence-backed A–F grades.",
       "tags": [
         "context-manager",
         "plugins",
@@ -1832,8 +1832,8 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73",
-      "latestBytes": 11971,
+      "latestVersion": "ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0",
+      "latestBytes": 16566,
       "trigger": "manual",
       "estimate": "~15–25m",
       "enabled": true,
@@ -1870,10 +1870,68 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791873897611,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml",
       "versions": [
+        {
+          "id": "ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0",
+          "bytes": 16566,
+          "publishedAt": 1791919915837,
+          "path": "workflows/ryanamundson/cm-plugin-quality/ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0.yaml",
+          "workflow": {
+            "id": "cm-plugin-quality",
+            "name": "Context Manager Plugin Quality",
+            "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and its evidence-backed A–F grades.",
+            "tags": [
+              "context-manager",
+              "plugins",
+              "quality",
+              "audit",
+              "report-only"
+            ],
+            "format": "workflow-yaml-v1",
+            "latestVersion": "ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0",
+            "latestBytes": 16566,
+            "trigger": "manual",
+            "estimate": "~15–25m",
+            "enabled": true,
+            "permissions": "full",
+            "model": "claude-sonnet-5",
+            "params": [
+              {
+                "key": "targets",
+                "label": "Plugin ids",
+                "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+              },
+              {
+                "key": "mode",
+                "label": "Verification mode",
+                "type": "select",
+                "options": [
+                  "static",
+                  "tests"
+                ]
+              }
+            ],
+            "inputs": {
+              "targets": "all",
+              "mode": "static"
+            },
+            "cloud": {
+              "compatible": false,
+              "reason": "Runs the checkout's own contract audit, its lints, and the bundled grading helper on the host.",
+              "requires": [
+                "repository",
+                "shell",
+                "tests",
+                "host-files"
+              ],
+              "result": "report"
+            },
+            "updatedAt": 1791919915837
+          }
+        },
         {
           "id": "bf86687c3ccf497c8db261dc2af8b8f4f3da9b20e2e58f5f92167ac79b4efb73",
           "bytes": 11971,
@@ -2105,7 +2163,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/comment-burden.yaml",
       "versions": [
@@ -2281,7 +2339,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/coverage-gaps.yaml",
       "versions": [
@@ -2428,7 +2486,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/dead-code-sweep.yaml",
       "versions": [
@@ -2564,7 +2622,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/dep-audit.yaml",
       "versions": [
@@ -2702,7 +2760,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/doc-sync.yaml",
       "versions": [
@@ -2851,7 +2909,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/explore-plan-code.yaml",
       "versions": [
@@ -3028,7 +3086,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/feature-behavior-audit.yaml",
       "versions": [
@@ -3185,7 +3243,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/file-by-file-audit.yaml",
       "versions": [
@@ -3342,7 +3400,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/file-by-file-audit-repair.yaml",
       "versions": [
@@ -3499,7 +3557,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/mcp-security-scanner.yaml",
       "versions": [
@@ -3661,7 +3719,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/phishing-campaign.yaml",
       "versions": [
@@ -3820,7 +3878,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/quick-check.yaml",
       "versions": [
@@ -3971,7 +4029,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/react-cleanup.yaml",
       "versions": [
@@ -4180,7 +4238,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/responsive-component-audit.yaml",
       "versions": [
@@ -4392,7 +4450,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/security-pass.yaml",
       "versions": [
@@ -4515,7 +4573,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/security-validation-lab.yaml",
       "versions": [
@@ -4637,7 +4695,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/silent-failure-hunt.yaml",
       "versions": [
@@ -4787,7 +4845,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/simplify-pass.yaml",
       "versions": [
@@ -4935,7 +4993,7 @@
         ],
         "result": "patch"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/tdd-feature.yaml",
       "versions": [
@@ -5076,7 +5134,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/type-design-review.yaml",
       "versions": [
@@ -5238,7 +5296,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-backend-scalability-audit.yaml",
       "versions": [
@@ -5414,7 +5472,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-centralization-audit.yaml",
       "versions": [
@@ -5573,7 +5631,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-declarative-split.yaml",
       "versions": [
@@ -5755,7 +5813,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/ui-layout-audit.yaml",
       "versions": [
@@ -5970,7 +6028,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/what-is-off.yaml",
       "versions": [
@@ -6157,7 +6215,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/workflow-audit.yaml",
       "versions": [
@@ -6349,7 +6407,7 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791425606936,
+      "updatedAt": 1791919915837,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/workflow-console-install.yaml",
       "versions": [

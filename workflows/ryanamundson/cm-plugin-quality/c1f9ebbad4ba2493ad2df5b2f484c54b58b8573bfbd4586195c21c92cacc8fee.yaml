@@ -1,0 +1,193 @@
+name: Context Manager Plugin Quality
+description: Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.
+tags: [context-manager, plugins, quality, audit, report-only]
+trigger: manual
+estimate: ~15–25m
+model: claude-sonnet-5
+permissions: edits
+cloud:
+  compatible: false
+  reason: Requires installed bundled report helpers on the host; source review never runs repository gates.
+  requires: [repository, shell, host-files]
+  result: report
+inputs:
+  targets: all
+  mode: static
+params:
+  - key: targets
+    label: Plugin ids
+    placeholder: all, or comma-separated ids from electron/plugins/catalog.ts
+  - key: mode
+    label: Verification mode
+    type: select
+    options: [static]
+phases:
+  context:
+    agent:
+      name: Trusted inventory
+      describes: initialize fresh run identity and archive source bytes without repository gates
+      artifacts: [".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/inventory.json"]
+      run: node "$WC_BUNDLED_SCRIPTS/cm-plugin/runtime.mjs" init
+
+  plan:
+    agent:
+      name: Plugin Inventory
+      describes: review trusted inventory and record source prerequisites
+      tools: [Read, Glob, Grep, Write]
+      artifacts: [".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/inventory-review.json"]
+      prompt: |
+        D=.workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/.
+        Read D/inventory.json and D/README.md in full (use paged Read for large files).
+        Trusted inventory already records current runId, timestamp, Git HEAD,
+        tracked dirty-byte digest, tooling presence/Node version, catalog selection,
+        grouped unselected directories, and complete canonical source snapshots/hash.
+        Do not compute identity, hashes, tooling versions, or time using commands.
+        The file-only tool contract removes every exec/network/MCP/subagent tool;
+        never seek Bash or a wrapper escape. No commands execute in model phases.
+        This Context Manager workflow unconditionally forbids contract audit,
+        security lint, database gates, tests, lint, builds, Actions, and policy or
+        hook probes. Do not invoke a checker through another command, inspect hook
+        classification as permission, or assume a command bypass grants authority.
+        Read source only; never edit source, configuration, Git state, or original
+        run outputs. Write only this run's report artifacts under D. Preserve all
+        earlier run evidence. If mode is not static, record a blocked input; do
+        not execute tests. These restrictions apply to every model phase.
+
+        Check the source prerequisites and contract sources in full using file tools.
+        Write inventory-review.json carrying exactly the trusted runId/sourceRevision,
+        status, observations, and named gaps. Never edit inventory.json or README.md.
+        Selected targets: {{ targets }}; mode: {{ mode }}.
+
+  execute:
+    agent:
+      tools: [Read, Glob, Grep, Write]
+      name: Contract Examiner
+      describes: read plugin source and record row evidence and named prohibited-command skips
+      timeoutSeconds: 1800
+      artifacts:
+        - ".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/evidence.json"
+      prompt: |
+        D=.workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/.
+        Read D/inventory.json, D/inventory-review.json, and D/README.md. Keep every report-only boundary.
+        This Context Manager workflow unconditionally forbids contract audit,
+        security lint, database gates, tests, lint, builds, Actions, and policy or
+        hook probes. Do not invoke a checker through another command, inspect hook
+        classification as permission, or assume a command bypass grants authority.
+        Read source only; never edit source, configuration, Git state, or original
+        run outputs. Write only this run's report artifacts under D. Preserve all
+        earlier run evidence. If mode is not static, record a blocked input; do
+        not execute tests. These restrictions apply to every model phase.
+        Even if inventory is blocked, preserve its runId/sourceRevision and write
+        evidence.json with the named reason and any available source observations.
+        Record these named skips in evidence.commands with status skipped,
+        exitCode null, and reason "Context Manager workflow forbids repository gates":
+        npx tsx scripts/plugin-contract-audit.ts --json;
+        npx tsx scripts/plugin-security-lint.ts;
+        npx tsx scripts/check-db-collection-contracts.ts;
+        plugin test execution, lint, build, Actions, and policy/hook probes.
+        Record contractAudit: {status: skipped, reason: the named policy reason,
+        runId: the trusted inventory runId, sourceRevision: copied trusted values,
+        commandIndex: the contract-audit skip entry index}. Raw audit input is null.
+        Do not execute any of them. Do not create contract-audit.json or fabricate
+        an executed contractAudit receipt. Explicit skipped audit evidence keeps all six domains
+        ungraded. Continue independent source review for each canonical row.
+
+        For every selected plugin read in full: the main manifest and index, the
+        renderer descriptor and each panel component it lazy-imports, tests on
+        both halves, stories, README.md, .feature.json, and the plugin's entries
+        in electron/plugins/registry.ts, src/[plugins]/registry/registry.tsx,
+        electron/lifecycle/capabilities/pluginCapabilities.ts,
+        src/[plugins]/collections/collections.ts, electron/config/firstRun.ts,
+        and docs/CANON.md. Record positive and negative evidence with file:line
+        for all six domains as the rubric defines them. For boundary, compare
+        every import against the SDK vocabulary and the two grandfathered sets in
+        scripts/plugin-security-lint.ts; a grandfathered edge is verified debt.
+        For lifecycle, locate each of the five required fixtures by test title
+        or assertion and cite it; a fixture you cannot locate is missing, not
+        unknown. For ui, cite the PanelLayout root and the state primitives.
+        For data, cite each collection's writeCycle and schemaParity. For
+        verification, resolve every behavior testRef to a file; execution remains
+        skipped and must not be claimed passing. Candidate findings carry root cause, occurrence
+        count, severity rationale from the rubric caps, file:line, and remediation.
+        Read each canonical requirement independently. Record per-row proof with
+        kind (source, runtime, or attestation), citation (file:line or current
+        run archive reference), and observation explaining the actual evidence.
+        Runtime proof requires an independently supplied current-run capture;
+        never operate the app or synthesize rendered proof. Audit proof is absent. Existence of tests or stories does not prove
+        execution or rendered behavior; attested and judgment rows require an
+        explicit current-run review. Do not inherit canonical verdicts from a
+        six-domain score or treat a skipped check as N/A. In particular, an audit
+        types.strict N/A is not compiler proof for PQ-types.1.
+        Write evidence.json with runId, sourceRevision, commands with exit codes,
+        per-plugin per-domain observations, candidate findings, and gaps, even on
+        partial execution. Never reuse artifacts from an earlier run.
+
+  review:
+    agent:
+      tools: [Read, Glob, Grep, Write]
+      name: Plugin Grader
+      describes: independently review exact canonical row evidence while keeping skipped domains ungraded
+      artifacts:
+        - ".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/assessment.json"
+      prompt: |
+        D=.workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/.
+        Read D/inventory.json, D/evidence.json, and D/README.md.
+        This Context Manager workflow unconditionally forbids contract audit,
+        security lint, database gates, tests, lint, builds, Actions, and policy or
+        hook probes. Do not invoke a checker through another command, inspect hook
+        classification as permission, or assume a command bypass grants authority.
+        Read source only; never edit source, configuration, Git state, or original
+        run outputs. Write only this run's report artifacts under D. Preserve all
+        earlier run evidence. If mode is not static, record a blocked input; do
+        not execute tests. These restrictions apply to every model phase.
+        Contract audit execution is forbidden; do not read or reuse an older
+        contract-audit.json. Audit-only proof is unavailable in this workflow.
+        First create assessment.json canonicalLedger:
+        {checklistRevision, plugins: [{id, rows: [{id, status, evidence, reason}]}]}.
+        Include every selected plugin and every exact canonical ID once, no extras.
+        status is only PASS, FAIL, N/A, or UNVERIFIED. PASS/FAIL require proof
+        objects {kind, citation, observation} from independent source, runtime,
+        or attestation review. Never fabricate machine-audit proof. N/A requires positive applicability
+        proof and a reason; an audit's inapplicable/skipped flag alone is insufficient.
+        Missing machine checks and allowlisted or ratcheted source gates do not
+        prove a row; leave it UNVERIFIED without independent semantic proof.
+        Attested and judgment rows always require independent proof.
+        UNVERIFIED requires a reason and never implies failure or success. Recheck
+        all proof against the full canonical row text at sourceRevision. Do not
+        infer blanket verdicts from mapped checks, attestation defaults, or grades.
+        Preserve this ledger even when grading is blocked, with unsupported rows
+        explicitly UNVERIFIED. If the checklist itself is invalid, name the blocker.
+        Carry sourceRevision/runId on assessment, and checklistRevision
+        on canonicalLedger. Recheck sourceRevision before review: source drift
+        blocks grading and proof reuse. Honor CANON over older enforcement wording.
+
+        Always write assessment.json with version 1, status ungraded, grade null,
+        current runId, sourceRevision, scannedAt, and a named reason stating that
+        contract audit is skipped by Context Manager policy. Retain canonicalLedger
+        even when audit grading is unavailable. Every selected plugin has all six
+        domain checks marked unknown with reasons; no six-domain grade is computed.
+        Recheck source citations for canonical row proof; unsupported rows remain
+        UNVERIFIED. Run/revision mismatch blocks proof reuse. No model executes a
+        grading or rendering command; the following deterministic steps own those.
+
+        Write assessment.json in the exact README contract: every selected plugin,
+        all six checks with unknown status, evidence arrays, and named reasons,
+        source candidate findings retained separately, and coverageGaps carrying every unresolved target,
+        environment gap, skipped test run, and unverified source identity forward.
+        Retain each finding's recorded occurrenceCount, severityRationale, and
+        regressionAssertion when the current evidence supplies them. Never invent
+        a count or a passing regression result.
+        No source fixes, verification commands, configuration changes, or Git writes.
+
+  report:
+    always: true
+    serial: true
+    fanout:
+      - name: Preserve ungraded assessment
+        describes: validate current trusted run and retain the canonical ledger without machine audit
+        artifacts: [".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/grades.json"]
+        run: node "$WC_BUNDLED_SCRIPTS/cm-plugin/runtime.mjs" grade
+      - name: Plugin Report
+        describes: validate current run and render all six named ungraded domain reasons and exact canonical rows
+        artifacts: [".workflow-console/workflows/out/cm-plugin-quality-runs/{{ runId }}/compliance-report.html"]
+        run: node "$WC_BUNDLED_SCRIPTS/cm-plugin/runtime.mjs" report

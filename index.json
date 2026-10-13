@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1791919915837,
+  "generatedAt": 1791927169273,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -1823,7 +1823,7 @@
     {
       "id": "cm-plugin-quality",
       "name": "Context Manager Plugin Quality",
-      "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and its evidence-backed A–F grades.",
+      "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
       "tags": [
         "context-manager",
         "plugins",
@@ -1832,12 +1832,12 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0",
-      "latestBytes": 16566,
+      "latestVersion": "c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee",
+      "latestBytes": 12399,
       "trigger": "manual",
       "estimate": "~15–25m",
       "enabled": true,
-      "permissions": "full",
+      "permissions": "edits",
       "model": "claude-sonnet-5",
       "params": [
         {
@@ -1850,8 +1850,7 @@
           "label": "Verification mode",
           "type": "select",
           "options": [
-            "static",
-            "tests"
+            "static"
           ]
         }
       ],
@@ -1861,19 +1860,74 @@
       },
       "cloud": {
         "compatible": false,
-        "reason": "Runs the checkout's own contract audit, its lints, and the bundled grading helper on the host.",
+        "reason": "Requires installed bundled report helpers on the host; source review never runs repository gates.",
         "requires": [
           "repository",
           "shell",
-          "tests",
           "host-files"
         ],
         "result": "report"
       },
-      "updatedAt": 1791919915837,
+      "updatedAt": 1791927169273,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml",
       "versions": [
+        {
+          "id": "c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee",
+          "bytes": 12399,
+          "publishedAt": 1791927169273,
+          "path": "workflows/ryanamundson/cm-plugin-quality/c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee.yaml",
+          "workflow": {
+            "id": "cm-plugin-quality",
+            "name": "Context Manager Plugin Quality",
+            "description": "Account for all 79 canonical plugin requirements with row proof or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
+            "tags": [
+              "context-manager",
+              "plugins",
+              "quality",
+              "audit",
+              "report-only"
+            ],
+            "format": "workflow-yaml-v1",
+            "latestVersion": "c1f9ebbad4ba2493ad2df5b2f484c54b58b8573bfbd4586195c21c92cacc8fee",
+            "latestBytes": 12399,
+            "trigger": "manual",
+            "estimate": "~15–25m",
+            "enabled": true,
+            "permissions": "edits",
+            "model": "claude-sonnet-5",
+            "params": [
+              {
+                "key": "targets",
+                "label": "Plugin ids",
+                "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+              },
+              {
+                "key": "mode",
+                "label": "Verification mode",
+                "type": "select",
+                "options": [
+                  "static"
+                ]
+              }
+            ],
+            "inputs": {
+              "targets": "all",
+              "mode": "static"
+            },
+            "cloud": {
+              "compatible": false,
+              "reason": "Requires installed bundled report helpers on the host; source review never runs repository gates.",
+              "requires": [
+                "repository",
+                "shell",
+                "host-files"
+              ],
+              "result": "report"
+            },
+            "updatedAt": 1791927169273
+          }
+        },
         {
           "id": "ba67a9fed7a8348e41ec5bff0f34aaed6f5f66ed9b696b3853a23f318a683cc0",
           "bytes": 16566,

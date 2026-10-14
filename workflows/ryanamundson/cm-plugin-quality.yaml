@@ -153,8 +153,11 @@ phases:
         Observable behavior cannot PASS without a trusted executed current-run
         receipt; this source-only run supplies none. Source fixtures alone are
         UNVERIFIED. Known counterexamples are FAIL even if another clause passes.
-        First create assessment-proposed.json canonicalLedger:
+        First create assessment-proposed.json with this TOP-LEVEL canonicalLedger:
         {checklistRevision, plugins: [{id, rows: [{id, status, evidence, reason}]}]}.
+        Keep canonicalLedger beside plugins, never inside a plugins entry. The trusted
+        helper explicitly validates the supported plugin-local alternative, retains
+        the original proposal, and reports normalization; mixed envelopes refuse.
         Include every selected plugin and every exact canonical ID once, no extras.
         status is only PASS, FAIL, N/A, or UNVERIFIED. PASS/FAIL require proof
         objects {kind, citation, observation} from independent source, runtime,

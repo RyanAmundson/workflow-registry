@@ -1,6 +1,6 @@
 {
   "format": "workflow-registry-v1",
-  "generatedAt": 1791933414582,
+  "generatedAt": 1791938682436,
   "workflows": [
     {
       "id": "adversarial-review",
@@ -1832,8 +1832,8 @@
         "report-only"
       ],
       "format": "workflow-yaml-v1",
-      "latestVersion": "0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78",
-      "latestBytes": 13431,
+      "latestVersion": "1f7f2c2e4d412d02267bf647f1fb5d684c79dfffc76556166217b21bb40bfc7f",
+      "latestBytes": 13704,
       "trigger": "manual",
       "estimate": "~15–25m",
       "enabled": true,
@@ -1868,10 +1868,66 @@
         ],
         "result": "report"
       },
-      "updatedAt": 1791933414582,
+      "updatedAt": 1791938682436,
       "owner": "ryanamundson",
       "path": "workflows/ryanamundson/cm-plugin-quality.yaml",
       "versions": [
+        {
+          "id": "1f7f2c2e4d412d02267bf647f1fb5d684c79dfffc76556166217b21bb40bfc7f",
+          "bytes": 13704,
+          "publishedAt": 1791938682436,
+          "path": "workflows/ryanamundson/cm-plugin-quality/1f7f2c2e4d412d02267bf647f1fb5d684c79dfffc76556166217b21bb40bfc7f.yaml",
+          "workflow": {
+            "id": "cm-plugin-quality",
+            "name": "Context Manager Plugin Quality",
+            "description": "Account for all 79 canonical plugin requirements with reviewed pinned source decisions and complete-clause candidate validation or explicit UNVERIFIED verdicts, alongside the separate six-domain weighted rubric and explicit ungraded six-domain results when repository gates are prohibited.",
+            "tags": [
+              "context-manager",
+              "plugins",
+              "quality",
+              "audit",
+              "report-only"
+            ],
+            "format": "workflow-yaml-v1",
+            "latestVersion": "1f7f2c2e4d412d02267bf647f1fb5d684c79dfffc76556166217b21bb40bfc7f",
+            "latestBytes": 13704,
+            "trigger": "manual",
+            "estimate": "~15–25m",
+            "enabled": true,
+            "permissions": "edits",
+            "model": "claude-sonnet-5",
+            "params": [
+              {
+                "key": "targets",
+                "label": "Plugin ids",
+                "placeholder": "all, or comma-separated ids from electron/plugins/catalog.ts"
+              },
+              {
+                "key": "mode",
+                "label": "Verification mode",
+                "type": "select",
+                "options": [
+                  "static"
+                ]
+              }
+            ],
+            "inputs": {
+              "targets": "all",
+              "mode": "static"
+            },
+            "cloud": {
+              "compatible": false,
+              "reason": "Requires installed bundled report helpers on the host; source review never runs repository gates.",
+              "requires": [
+                "repository",
+                "shell",
+                "host-files"
+              ],
+              "result": "report"
+            },
+            "updatedAt": 1791938682436
+          }
+        },
         {
           "id": "0957561cf7c69659c59a05a2612b5b10169ed03bee2f8e98bc10489279438e78",
           "bytes": 13431,
